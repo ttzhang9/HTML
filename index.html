@@ -1,0 +1,2637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电镜科研平台 - 交互式学习游戏</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0066cc',
+                        secondary: '#00aaff',
+                        accent: '#00ffcc',
+                        dark: '#0a1929',
+                        light: '#e6f7ff'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate'
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' }
+                        },
+                        glow: {
+                            '0%': { boxShadow: '0 0 5px rgba(0, 170, 255, 0.5)' },
+                            '100%': { boxShadow: '0 0 20px rgba(0, 170, 255, 0.8), 0 0 30px rgba(0, 255, 204, 0.5)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            }
+            .text-glow {
+                text-shadow: 0 0 10px rgba(0, 170, 255, 0.7);
+            }
+            .border-glow {
+                box-shadow: 0 0 10px rgba(0, 170, 255, 0.7);
+            }
+            .bg-grid {
+                background-image: 
+                    linear-gradient(rgba(0, 170, 255, 0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(0, 170, 255, 0.1) 1px, transparent 1px);
+                background-size: 20px 20px;
+            }
+            .glass-effect {
+                background: rgba(10, 25, 41, 0.7);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(0, 170, 255, 0.3);
+            }
+        }
+    </style>
+    <style>
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(10, 25, 41, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 170, 255, 0.5);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 170, 255, 0.8);
+        }
+        
+        /* 页面切换动画 */
+        .page-transition {
+            transition: all 0.5s ease-in-out;
+        }
+        .page-enter {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .page-enter-active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* 电子流动画 */
+        .electron {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background-color: #00aaff;
+            border-radius: 50%;
+            box-shadow: 0 0 6px 2px rgba(0, 170, 255, 0.8);
+            animation: electron-flow 3s linear infinite;
+        }
+        @keyframes electron-flow {
+            0% {
+                transform: translateY(0) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) translateX(20px);
+                opacity: 0;
+            }
+        }
+        
+        /* 3D 卡片效果 */
+        .card-3d {
+            transition: transform 0.5s ease;
+            transform-style: preserve-3d;
+        }
+        .card-3d:hover {
+            transform: translateY(-10px) rotateX(5deg);
+        }
+        .card-3d::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 10px;
+            bottom: -10px;
+            left: 0;
+            background: rgba(0, 170, 255, 0.2);
+            transform: rotateX(90deg);
+            transform-origin: bottom;
+            border-radius: 50%;
+            filter: blur(5px);
+        }
+        
+        /* 扫描线效果 */
+        .scanlines {
+            position: relative;
+            overflow: hidden;
+        }
+        .scanlines::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 2;
+        }
+        
+        /* 按钮悬停效果 */
+        .btn-hover-effect {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .btn-hover-effect::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.2),
+                transparent
+            );
+            transition: all 0.5s ease;
+        }
+        .btn-hover-effect:hover::before {
+            left: 100%;
+        }
+    </style>
+</head>
+<body class="bg-dark text-light min-h-screen overflow-x-hidden">
+    <!-- 背景效果 -->
+    <div class="fixed inset-0 bg-grid opacity-30 z-0"></div>
+    <div id="electrons-container" class="fixed inset-0 pointer-events-none z-0"></div>
+    
+    <!-- 主容器 -->
+    <div class="relative z-10">
+        <!-- 顶部导航栏 -->
+        <header class="glass-effect sticky top-0 z-50 border-b border-secondary/30">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center border border-secondary animate-pulse-slow">
+                        <i class="fa fa-microscope text-xl text-accent"></i>
+                    </div>
+                    <h1 class="text-xl md:text-2xl font-bold text-glow">电镜科研平台</h1>
+                </div>
+                
+                <nav class="hidden md:flex space-x-6">
+                    <button id="nav-home" class="nav-btn active px-3 py-2 rounded-lg hover:bg-primary/30 transition-all flex items-center">
+                        <i class="fa fa-home mr-2"></i>首页
+                    </button>
+                    <button id="nav-knowledge" class="nav-btn px-3 py-2 rounded-lg hover:bg-primary/30 transition-all flex items-center">
+                        <i class="fa fa-book mr-2"></i>知识库
+                    </button>
+                    <button id="nav-lab" class="nav-btn px-3 py-2 rounded-lg hover:bg-primary/30 transition-all flex items-center">
+                        <i class="fa fa-flask mr-2"></i>虚拟实验室
+                    </button>
+                    <button id="nav-challenge" class="nav-btn px-3 py-2 rounded-lg hover:bg-primary/30 transition-all flex items-center">
+                        <i class="fa fa-trophy mr-2"></i>挑战模式
+                    </button>
+                </nav>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="hidden md:flex items-center bg-primary/20 rounded-full px-4 py-1">
+                        <i class="fa fa-star text-yellow-400 mr-2"></i>
+                        <span id="user-score">0</span>
+                    </div>
+                    <button id="mobile-menu-btn" class="md:hidden text-2xl">
+                        <i class="fa fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 移动端菜单 -->
+            <div id="mobile-menu" class="hidden md:hidden glass-effect border-t border-secondary/30">
+                <div class="container mx-auto px-4 py-2 flex flex-col space-y-2">
+                    <button class="mobile-nav-btn active px-3 py-2 rounded-lg hover:bg-primary/30 transition-all flex items-center" data-target="home">
+                        <i class="fa fa-home mr-2"></i>首页
+                    </button>
+                    <button class="mobile-nav-btn px-3 py-2 rounded-lg hover:bg-primary/30 transition-all flex items-center" data-target="knowledge">
+                        <i class="fa fa-book mr-2"></i>知识库
+                    </button>
+                    <button class="mobile-nav-btn px-3 py-2 rounded-lg hover:bg-primary/30 transition-all flex items-center" data-target="lab">
+                        <i class="fa fa-flask mr-2"></i>虚拟实验室
+                    </button>
+                    <button class="mobile-nav-btn px-3 py-2 rounded-lg hover:bg-primary/30 transition-all flex items-center" data-target="challenge">
+                        <i class="fa fa-trophy mr-2"></i>挑战模式
+                    </button>
+                    <div class="flex items-center bg-primary/20 rounded-full px-4 py-1">
+                        <i class="fa fa-star text-yellow-400 mr-2"></i>
+                        <span>得分: <span id="mobile-score">0</span></span>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- 主内容区域 -->
+        <main class="container mx-auto px-4 py-8">
+            <!-- 首页 -->
+            <section id="home-page" class="page active page-transition">
+                <div class="flex flex-col md:flex-row items-center justify-between mb-12">
+                    <div class="md:w-1/2 mb-8 md:mb-0">
+                        <h2 class="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 text-glow">
+                            探索微观世界的<br><span class="text-accent">奥秘之旅</span>
+                        </h2>
+                        <p class="text-lg md:text-xl mb-6 text-gray-300">
+                            通过交互式游戏，掌握SEM、TEM、FIB、Cryo-EM等先进电镜技术，
+                            提升您的科研能力，解锁微观世界的无限可能。
+                        </p>
+                        <div class="flex flex-wrap gap-4">
+                            <button id="start-journey-btn" class="btn-hover-effect bg-gradient-to-r from-primary to-secondary text-white font-bold py-3 px-6 rounded-lg text-lg flex items-center">
+                                <i class="fa fa-rocket mr-2"></i>开始探索
+                            </button>
+                            <button id="learn-more-btn" class="btn-hover-effect bg-transparent border-2 border-secondary text-secondary font-bold py-3 px-6 rounded-lg text-lg flex items-center">
+                                <i class="fa fa-info-circle mr-2"></i>了解更多
+                            </button>
+                        </div>
+                    </div>
+                    <div class="md:w-1/2 flex justify-center">
+                        <div class="relative w-full max-w-md animate-float">
+                            <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/4840840f9c3c4b648978eefbb8cce90d~tplv-a9rns2rl98-image.image?rcl=202512121531066082F474330E7495501E&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1768116712&x-signature=VByzgGaGeWJqqZOQ%2FxaSok68azg%3D" 
+                                 alt="电镜游戏界面" 
+                                 class="w-full rounded-xl border-glow border-2 border-secondary shadow-lg">
+                            <div class="absolute -bottom-4 -right-4 bg-accent text-dark font-bold py-2 px-4 rounded-lg shadow-lg">
+                                全新体验
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 电镜类型卡片 -->
+                <h3 class="text-2xl font-bold mb-6 text-center text-glow">探索先进电镜技术</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                    <!-- SEM卡片 -->
+                    <div class="card-3d glass-effect rounded-xl overflow-hidden border border-secondary/30 hover:border-accent transition-all group">
+                        <div class="h-40 bg-gradient-to-br from-primary/40 to-secondary/40 flex items-center justify-center relative overflow-hidden">
+                            <img src="https://p11-doubao-search-sign.byteimg.com/labis/bbccfd9e3915c894b1588624e8eb18b1~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=Onlu3UJHEPaiDoAP43hYkH3evL8%3D" 
+                                 alt="扫描电子显微镜" 
+                                 class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent"></div>
+                            <h4 class="absolute bottom-4 left-4 text-2xl font-bold text-glow">SEM</h4>
+                        </div>
+                        <div class="p-4">
+                            <h5 class="font-bold mb-2 text-accent">扫描电子显微镜</h5>
+                            <p class="text-sm text-gray-300 mb-4">观察样品表面微观形貌，分辨率可达纳米级，广泛应用于材料科学和生物学研究。</p>
+                            <button class="microscope-btn w-full py-2 bg-primary/30 hover:bg-primary/50 rounded-lg transition-all flex items-center justify-center" data-type="sem">
+                                <i class="fa fa-search-plus mr-2"></i>探索SEM
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- TEM卡片 -->
+                    <div class="card-3d glass-effect rounded-xl overflow-hidden border border-secondary/30 hover:border-accent transition-all group">
+                        <div class="h-40 bg-gradient-to-br from-primary/40 to-secondary/40 flex items-center justify-center relative overflow-hidden">
+                            <img src="https://p26-doubao-search-sign.byteimg.com/labis/image/b3c8d3a696b16b07a5a5f02dec8941bc~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=fZ7Mavhmgo1baKxgw%2BSoIdYOK1w%3D" 
+                                 alt="透射电子显微镜" 
+                                 class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent"></div>
+                            <h4 class="absolute bottom-4 left-4 text-2xl font-bold text-glow">TEM</h4>
+                        </div>
+                        <div class="p-4">
+                            <h5 class="font-bold mb-2 text-accent">透射电子显微镜</h5>
+                            <p class="text-sm text-gray-300 mb-4">观察样品内部结构，分辨率可达原子级，是材料科学和生命科学研究的重要工具。</p>
+                            <button class="microscope-btn w-full py-2 bg-primary/30 hover:bg-primary/50 rounded-lg transition-all flex items-center justify-center" data-type="tem">
+                                <i class="fa fa-search-plus mr-2"></i>探索TEM
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- FIB卡片 -->
+                    <div class="card-3d glass-effect rounded-xl overflow-hidden border border-secondary/30 hover:border-accent transition-all group">
+                        <div class="h-40 bg-gradient-to-br from-primary/40 to-secondary/40 flex items-center justify-center relative overflow-hidden">
+                            <img src="https://p26-doubao-search-sign.byteimg.com/labis/e93505f00c848874225a36e1afa4ac41~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=zj4lEdpd5x4aeaR9sN4sE67pLyg%3D" 
+                                 alt="聚焦离子束" 
+                                 class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent"></div>
+                            <h4 class="absolute bottom-4 left-4 text-2xl font-bold text-glow">FIB</h4>
+                        </div>
+                        <div class="p-4">
+                            <h5 class="font-bold mb-2 text-accent">聚焦离子束系统</h5>
+                            <p class="text-sm text-gray-300 mb-4">纳米级加工与分析工具，可进行精确切割、沉积和成像，是半导体行业的关键设备。</p>
+                            <button class="microscope-btn w-full py-2 bg-primary/30 hover:bg-primary/50 rounded-lg transition-all flex items-center justify-center" data-type="fib">
+                                <i class="fa fa-search-plus mr-2"></i>探索FIB
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Cryo-EM卡片 -->
+                    <div class="card-3d glass-effect rounded-xl overflow-hidden border border-secondary/30 hover:border-accent transition-all group">
+                        <div class="h-40 bg-gradient-to-br from-primary/40 to-secondary/40 flex items-center justify-center relative overflow-hidden">
+                            <img src="https://p26-doubao-search-sign.byteimg.com/labis/image/fae8b45709851f0e8955520d872f4f1f~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=6nJtYvyr9EOEhea1ZQOgks1krAk%3D" 
+                                 alt="冷冻电子显微镜" 
+                                 class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent"></div>
+                            <h4 class="absolute bottom-4 left-4 text-2xl font-bold text-glow">Cryo-EM</h4>
+                        </div>
+                        <div class="p-4">
+                            <h5 class="font-bold mb-2 text-accent">冷冻电子显微镜</h5>
+                            <p class="text-sm text-gray-300 mb-4">在低温下观察生物大分子结构，革命性地推动了结构生物学的发展，获得2017年诺贝尔奖。</p>
+                            <button class="microscope-btn w-full py-2 bg-primary/30 hover:bg-primary/50 rounded-lg transition-all flex items-center justify-center" data-type="cryo-em">
+                                <i class="fa fa-search-plus mr-2"></i>探索Cryo-EM
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 功能特点 -->
+                <h3 class="text-2xl font-bold mb-6 text-center text-glow">平台特色功能</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                    <!-- 知识库 -->
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30 hover:border-accent transition-all">
+                        <div class="w-16 h-16 rounded-full bg-primary/30 flex items-center justify-center mb-4 mx-auto">
+                            <i class="fa fa-book text-3xl text-accent"></i>
+                        </div>
+                        <h4 class="text-xl font-bold mb-3 text-center">电镜知识库</h4>
+                        <p class="text-gray-300 text-center">
+                            全面的电镜技术资料，包括原理图解、操作指南和应用案例，帮助您深入了解各类电镜技术。
+                        </p>
+                    </div>
+                    
+                    <!-- 虚拟实验室 -->
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30 hover:border-accent transition-all">
+                        <div class="w-16 h-16 rounded-full bg-primary/30 flex items-center justify-center mb-4 mx-auto">
+                            <i class="fa fa-flask text-3xl text-accent"></i>
+                        </div>
+                        <h4 class="text-xl font-bold mb-3 text-center">虚拟实验室</h4>
+                        <p class="text-gray-300 text-center">
+                            交互式模拟电镜操作流程，包括样品制备、参数设置、图像采集和分析，提升实验技能。
+                        </p>
+                    </div>
+                    
+                    <!-- 挑战模式 -->
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30 hover:border-accent transition-all">
+                        <div class="w-16 h-16 rounded-full bg-primary/30 flex items-center justify-center mb-4 mx-auto">
+                            <i class="fa fa-trophy text-3xl text-accent"></i>
+                        </div>
+                        <h4 class="text-xl font-bold mb-3 text-center">挑战模式</h4>
+                        <p class="text-gray-300 text-center">
+                            设置不同难度的科研任务，选择合适的电镜类型和参数完成实验目标，赢取积分奖励。
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- 用户评价 -->
+                <h3 class="text-2xl font-bold mb-6 text-center text-glow">用户评价</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 rounded-full bg-primary/30 flex items-center justify-center mr-4">
+                                <span class="font-bold text-accent">L</span>
+                            </div>
+                            <div>
+                                <h5 class="font-bold">李教授</h5>
+                                <div class="flex text-yellow-400">
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-gray-300">
+                            "这个平台非常适合教学使用，学生可以在虚拟环境中学习电镜操作，大大提高了实验教学效率。"
+                        </p>
+                    </div>
+                    
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 rounded-full bg-primary/30 flex items-center justify-center mr-4">
+                                <span class="font-bold text-accent">W</span>
+                            </div>
+                            <div>
+                                <h5 class="font-bold">王研究员</h5>
+                                <div class="flex text-yellow-400">
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star-half-o"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-gray-300">
+                            "挑战模式设计得很有创意，让我在游戏中巩固了电镜知识，对我的科研工作很有帮助。"
+                        </p>
+                    </div>
+                    
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 rounded-full bg-primary/30 flex items-center justify-center mr-4">
+                                <span class="font-bold text-accent">Z</span>
+                            </div>
+                            <div>
+                                <h5 class="font-bold">张同学</h5>
+                                <div class="flex text-yellow-400">
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star"></i>
+                                    <i class="fa fa-star-o"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-gray-300">
+                            "作为一名研究生，这个平台帮助我快速掌握了电镜基础知识，界面友好，内容丰富。"
+                        </p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 知识库页面 -->
+            <section id="knowledge-page" class="page hidden page-transition">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold mb-4 text-glow">电镜知识库</h2>
+                    <p class="text-lg text-gray-300">
+                        探索各类电子显微镜的工作原理、结构组成、应用场景和最新发展，
+                        深入了解微观世界的观察技术。
+                    </p>
+                </div>
+                
+                <!-- 电镜类型选择器 -->
+                <div class="flex flex-wrap gap-4 mb-8">
+                    <button class="knowledge-tab active px-4 py-2 rounded-lg bg-primary text-white transition-all" data-target="sem-knowledge">
+                        SEM
+                    </button>
+                    <button class="knowledge-tab px-4 py-2 rounded-lg bg-primary/30 hover:bg-primary/50 transition-all" data-target="tem-knowledge">
+                        TEM
+                    </button>
+                    <button class="knowledge-tab px-4 py-2 rounded-lg bg-primary/30 hover:bg-primary/50 transition-all" data-target="fib-knowledge">
+                        FIB
+                    </button>
+                    <button class="knowledge-tab px-4 py-2 rounded-lg bg-primary/30 hover:bg-primary/50 transition-all" data-target="cryo-em-knowledge">
+                        Cryo-EM
+                    </button>
+                </div>
+                
+                <!-- SEM知识内容 -->
+                <div id="sem-knowledge" class="knowledge-content active">
+                    <div class="glass-effect rounded-xl p-6 mb-8 border border-secondary/30">
+                        <div class="flex flex-col md:flex-row gap-6">
+                            <div class="md:w-1/2">
+                                <h3 class="text-2xl font-bold mb-4 text-accent">扫描电子显微镜 (SEM)</h3>
+                                <p class="mb-4 text-gray-300">
+                                    扫描电子显微镜(Scanning Electron Microscope，SEM)是一种以电子束为照明源，通过电子与样品表面相互作用产生的信号来成像的电子显微镜。
+                                </p>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">工作原理</h4>
+                                <p class="mb-4 text-gray-300">
+                                    SEM通过电子枪发射电子束，经电磁透镜聚焦成纳米级束斑，在样品表面作光栅状扫描。电子与样品相互作用产生二次电子、背散射电子等信号，这些信号被探测器收集并转换为图像。
+                                </p>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">主要特点</h4>
+                                <ul class="list-disc list-inside mb-4 text-gray-300 space-y-2">
+                                    <li>高分辨率：可达1-5nm</li>
+                                    <li>大景深：提供立体图像</li>
+                                    <li>宽放大倍率范围：20-300,000倍</li>
+                                    <li>适合观察样品表面形貌</li>
+                                </ul>
+                            </div>
+                            <div class="md:w-1/2">
+                                <div class="rounded-lg overflow-hidden mb-4">
+                                    <img src="https://p11-doubao-search-sign.byteimg.com/labis/bbccfd9e3915c894b1588624e8eb18b1~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=Onlu3UJHEPaiDoAP43hYkH3evL8%3D" 
+                                         alt="扫描电子显微镜" 
+                                         class="w-full h-auto">
+                                </div>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">应用领域</h4>
+                                <ul class="list-disc list-inside mb-4 text-gray-300 space-y-2">
+                                    <li>材料科学：表面形貌分析、断口分析</li>
+                                    <li>生物学：细胞、组织表面结构观察</li>
+                                    <li>半导体工业：芯片质量检测</li>
+                                    <li>地质学：矿物形貌观察</li>
+                                    <li>法医学：物证分析</li>
+                                </ul>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">样品要求</h4>
+                                <p class="text-gray-300">
+                                    样品需具有一定导电性，非导电样品需进行镀膜处理（如喷金）。样品尺寸一般不超过2-3cm，需保持干燥、无磁性。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- SEM交互式问答 -->
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30">
+                        <h3 class="text-2xl font-bold mb-4 text-accent">知识检测</h3>
+                        <div class="sem-quiz">
+                            <div class="quiz-question mb-6">
+                                <p class="text-lg mb-4">1. SEM主要用于观察样品的什么特征？</p>
+                                <div class="space-y-2">
+                                    <div class="flex items-center">
+                                        <input type="radio" id="sem-q1-a" name="sem-q1" class="mr-2">
+                                        <label for="sem-q1-a">内部结构</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="sem-q1-b" name="sem-q1" class="mr-2">
+                                        <label for="sem-q1-b">表面形貌</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="sem-q1-c" name="sem-q1" class="mr-2">
+                                        <label for="sem-q1-c">元素分布</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="sem-q1-d" name="sem-q1" class="mr-2">
+                                        <label for="sem-q1-d">晶体结构</label>
+                                    </div>
+                                </div>
+                                <div class="quiz-feedback mt-2 hidden"></div>
+                            </div>
+                            
+                            <div class="quiz-question mb-6">
+                                <p class="text-lg mb-4">2. SEM中，哪种信号主要用于表面形貌成像？</p>
+                                <div class="space-y-2">
+                                    <div class="flex items-center">
+                                        <input type="radio" id="sem-q2-a" name="sem-q2" class="mr-2">
+                                        <label for="sem-q2-a">背散射电子</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="sem-q2-b" name="sem-q2" class="mr-2">
+                                        <label for="sem-q2-b">二次电子</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="sem-q2-c" name="sem-q2" class="mr-2">
+                                        <label for="sem-q2-c">特征X射线</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="sem-q2-d" name="sem-q2" class="mr-2">
+                                        <label for="sem-q2-d">透射电子</label>
+                                    </div>
+                                </div>
+                                <div class="quiz-feedback mt-2 hidden"></div>
+                            </div>
+                            
+                            <button id="check-sem-answers" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all">
+                                检查答案
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- TEM知识内容 -->
+                <div id="tem-knowledge" class="knowledge-content hidden">
+                    <div class="glass-effect rounded-xl p-6 mb-8 border border-secondary/30">
+                        <div class="flex flex-col md:flex-row gap-6">
+                            <div class="md:w-1/2">
+                                <h3 class="text-2xl font-bold mb-4 text-accent">透射电子显微镜 (TEM)</h3>
+                                <p class="mb-4 text-gray-300">
+                                    透射电子显微镜(Transmission Electron Microscope，TEM)是一种通过电子束穿透样品来成像的高分辨率显微镜，可观察样品的内部结构。
+                                </p>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">工作原理</h4>
+                                <p class="mb-4 text-gray-300">
+                                    TEM使用电子枪发射电子束，经聚光镜聚焦后照射到超薄样品上。电子束穿过样品时，部分电子被散射，形成明暗不同的图像，经物镜、中间镜和投影镜放大后在荧光屏上成像。
+                                </p>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">主要特点</h4>
+                                <ul class="list-disc list-inside mb-4 text-gray-300 space-y-2">
+                                    <li>超高分辨率：可达0.1-0.2nm</li>
+                                    <li>可观察样品内部结构和晶体缺陷</li>
+                                    <li>可进行电子衍射分析</li>
+                                    <li>放大倍率高达1,000,000倍以上</li>
+                                </ul>
+                            </div>
+                            <div class="md:w-1/2">
+                                <div class="rounded-lg overflow-hidden mb-4">
+                                    <img src="https://p26-doubao-search-sign.byteimg.com/labis/image/b3c8d3a696b16b07a5a5f02dec8941bc~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=fZ7Mavhmgo1baKxgw%2BSoIdYOK1w%3D" 
+                                         alt="透射电子显微镜" 
+                                         class="w-full h-auto">
+                                </div>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">应用领域</h4>
+                                <ul class="list-disc list-inside mb-4 text-gray-300 space-y-2">
+                                    <li>材料科学：晶体结构、位错、界面研究</li>
+                                    <li>生命科学：细胞超微结构观察</li>
+                                    <li>纳米科学：纳米材料表征</li>
+                                    <li>半导体：器件结构分析</li>
+                                </ul>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">样品要求</h4>
+                                <p class="text-gray-300">
+                                    样品需制成50-100nm厚的超薄切片，或直径小于100nm的粉末。样品需具有电子透明度，需进行特殊制备，如超薄切片、负染色、冷冻蚀刻等。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- TEM交互式问答 -->
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30">
+                        <h3 class="text-2xl font-bold mb-4 text-accent">知识检测</h3>
+                        <div class="tem-quiz">
+                            <div class="quiz-question mb-6">
+                                <p class="text-lg mb-4">1. TEM的分辨率主要取决于什么？</p>
+                                <div class="space-y-2">
+                                    <div class="flex items-center">
+                                        <input type="radio" id="tem-q1-a" name="tem-q1" class="mr-2">
+                                        <label for="tem-q1-a">电子束强度</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="tem-q1-b" name="tem-q1" class="mr-2">
+                                        <label for="tem-q1-b">样品厚度</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="tem-q1-c" name="tem-q1" class="mr-2">
+                                        <label for="tem-q1-c">电子波长和透镜质量</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="tem-q1-d" name="tem-q1" class="mr-2">
+                                        <label for="tem-q1-d">真空度</label>
+                                    </div>
+                                </div>
+                                <div class="quiz-feedback mt-2 hidden"></div>
+                            </div>
+                            
+                            <div class="quiz-question mb-6">
+                                <p class="text-lg mb-4">2. TEM样品的典型厚度是多少？</p>
+                                <div class="space-y-2">
+                                    <div class="flex items-center">
+                                        <input type="radio" id="tem-q2-a" name="tem-q2" class="mr-2">
+                                        <label for="tem-q2-a">1-5μm</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="tem-q2-b" name="tem-q2" class="mr-2">
+                                        <label for="tem-q2-b">50-100nm</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="tem-q2-c" name="tem-q2" class="mr-2">
+                                        <label for="tem-q2-c">1-5mm</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="tem-q2-d" name="tem-q2" class="mr-2">
+                                        <label for="tem-q2-d">100-200μm</label>
+                                    </div>
+                                </div>
+                                <div class="quiz-feedback mt-2 hidden"></div>
+                            </div>
+                            
+                            <button id="check-tem-answers" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all">
+                                检查答案
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- FIB知识内容 -->
+                <div id="fib-knowledge" class="knowledge-content hidden">
+                    <div class="glass-effect rounded-xl p-6 mb-8 border border-secondary/30">
+                        <div class="flex flex-col md:flex-row gap-6">
+                            <div class="md:w-1/2">
+                                <h3 class="text-2xl font-bold mb-4 text-accent">聚焦离子束系统 (FIB)</h3>
+                                <p class="mb-4 text-gray-300">
+                                    聚焦离子束系统(Focused Ion Beam，FIB)是一种利用高能离子束对材料进行纳米级加工和分析的先进技术。
+                                </p>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">工作原理</h4>
+                                <p class="mb-4 text-gray-300">
+                                    FIB使用液态金属离子源（通常是镓）产生离子束，经静电透镜聚焦成纳米级束斑。高能离子束与样品相互作用时，会产生溅射效应，可用于精确刻蚀或沉积材料。同时，产生的二次电子可用于成像。
+                                </p>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">主要特点</h4>
+                                <ul class="list-disc list-inside mb-4 text-gray-300 space-y-2">
+                                    <li>纳米级加工精度：可达几纳米</li>
+                                    <li>可进行定点、定向加工</li>
+                                    <li>兼具刻蚀和沉积功能</li>
+                                    <li>可与SEM结合形成双束系统</li>
+                                </ul>
+                            </div>
+                            <div class="md:w-1/2">
+                                <div class="rounded-lg overflow-hidden mb-4">
+                                    <img src="https://p26-doubao-search-sign.byteimg.com/labis/e93505f00c848874225a36e1afa4ac41~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=zj4lEdpd5x4aeaR9sN4sE67pLyg%3D" 
+                                         alt="聚焦离子束系统" 
+                                         class="w-full h-auto">
+                                </div>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">应用领域</h4>
+                                <ul class="list-disc list-inside mb-4 text-gray-300 space-y-2">
+                                    <li>半导体工业：芯片修复、线路修改</li>
+                                    <li>材料科学：纳米结构制备</li>
+                                    <li>TEM样品制备：精确切割超薄样品</li>
+                                    <li>三维重构：逐层切割和成像</li>
+                                </ul>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">FIB-SEM双束系统</h4>
+                                <p class="text-gray-300">
+                                    FIB常与SEM结合形成双束系统，FIB用于加工，SEM用于高分辨率成像，实现了加工与观察的一体化，大大提高了工作效率和精度。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- FIB交互式问答 -->
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30">
+                        <h3 class="text-2xl font-bold mb-4 text-accent">知识检测</h3>
+                        <div class="fib-quiz">
+                            <div class="quiz-question mb-6">
+                                <p class="text-lg mb-4">1. FIB常用的离子源材料是什么？</p>
+                                <div class="space-y-2">
+                                    <div class="flex items-center">
+                                        <input type="radio" id="fib-q1-a" name="fib-q1" class="mr-2">
+                                        <label for="fib-q1-a">钨</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="fib-q1-b" name="fib-q1" class="mr-2">
+                                        <label for="fib-q1-b">镓</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="fib-q1-c" name="fib-q1" class="mr-2">
+                                        <label for="fib-q1-c">金</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="fib-q1-d" name="fib-q1" class="mr-2">
+                                        <label for="fib-q1-d">铜</label>
+                                    </div>
+                                </div>
+                                <div class="quiz-feedback mt-2 hidden"></div>
+                            </div>
+                            
+                            <div class="quiz-question mb-6">
+                                <p class="text-lg mb-4">2. FIB技术在半导体行业的主要应用是什么？</p>
+                                <div class="space-y-2">
+                                    <div class="flex items-center">
+                                        <input type="radio" id="fib-q2-a" name="fib-q2" class="mr-2">
+                                        <label for="fib-q2-a">样品表面清洁</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="fib-q2-b" name="fib-q2" class="mr-2">
+                                        <label for="fib-q2-b">芯片修复和线路修改</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="fib-q2-c" name="fib-q2" class="mr-2">
+                                        <label for="fib-q2-c">提高芯片亮度</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="fib-q2-d" name="fib-q2" class="mr-2">
+                                        <label for="fib-q2-d">增加芯片厚度</label>
+                                    </div>
+                                </div>
+                                <div class="quiz-feedback mt-2 hidden"></div>
+                            </div>
+                            
+                            <button id="check-fib-answers" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all">
+                                检查答案
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Cryo-EM知识内容 -->
+                <div id="cryo-em-knowledge" class="knowledge-content hidden">
+                    <div class="glass-effect rounded-xl p-6 mb-8 border border-secondary/30">
+                        <div class="flex flex-col md:flex-row gap-6">
+                            <div class="md:w-1/2">
+                                <h3 class="text-2xl font-bold mb-4 text-accent">冷冻电子显微镜 (Cryo-EM)</h3>
+                                <p class="mb-4 text-gray-300">
+                                    冷冻电子显微镜(Cryogenic Electron Microscopy，Cryo-EM)是一种在超低温条件下观察生物大分子和细胞结构的先进技术。
+                                </p>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">工作原理</h4>
+                                <p class="mb-4 text-gray-300">
+                                    Cryo-EM将样品快速冷冻至液氮温度（-196℃），使样品中的水形成玻璃态冰，保持生物分子的天然结构。然后使用透射电子显微镜对冷冻样品进行成像，通过计算机处理和三维重构技术，获得生物大分子的高分辨率三维结构。
+                                </p>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">主要特点</h4>
+                                <ul class="list-disc list-inside mb-4 text-gray-300 space-y-2">
+                                    <li>无需结晶：适用于难以结晶的生物大分子</li>
+                                    <li>保持天然状态：避免化学固定和染色的影响</li>
+                                    <li>高分辨率：可达原子级分辨率（0.1-0.3nm）</li>
+                                    <li>可观察动态过程：捕捉不同构象状态</li>
+                                </ul>
+                            </div>
+                            <div class="md:w-1/2">
+                                <div class="rounded-lg overflow-hidden mb-4">
+                                    <img src="https://p26-doubao-search-sign.byteimg.com/labis/image/fae8b45709851f0e8955520d872f4f1f~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=6nJtYvyr9EOEhea1ZQOgks1krAk%3D" 
+                                         alt="冷冻电子显微镜" 
+                                         class="w-full h-auto">
+                                </div>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">应用领域</h4>
+                                <ul class="list-disc list-inside mb-4 text-gray-300 space-y-2">
+                                    <li>结构生物学：蛋白质、核酸、病毒等生物大分子结构测定</li>
+                                    <li>药物研发：药物靶点结构分析</li>
+                                    <li>细胞生物学：细胞超微结构观察</li>
+                                    <li>神经科学：突触结构研究</li>
+                                </ul>
+                                <h4 class="text-xl font-bold mb-2 text-secondary">诺贝尔奖认可</h4>
+                                <p class="text-gray-300">
+                                    2017年，雅克·迪波什(Jacques Dubochet)、约阿基姆·弗兰克(Joachim Frank)和理查德·亨德森(Richard Henderson)因开发冷冻电镜技术获得诺贝尔化学奖，以表彰他们在"开发用于溶液中生物分子高分辨率结构测定的冷冻电镜技术"方面的贡献。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Cryo-EM交互式问答 -->
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30">
+                        <h3 class="text-2xl font-bold mb-4 text-accent">知识检测</h3>
+                        <div class="cryo-em-quiz">
+                            <div class="quiz-question mb-6">
+                                <p class="text-lg mb-4">1. Cryo-EM中样品冷冻的主要目的是什么？</p>
+                                <div class="space-y-2">
+                                    <div class="flex items-center">
+                                        <input type="radio" id="cryo-q1-a" name="cryo-q1" class="mr-2">
+                                        <label for="cryo-q1-a">防止样品移动</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="cryo-q1-b" name="cryo-q1" class="mr-2">
+                                        <label for="cryo-q1-b">降低电子束损伤</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="cryo-q1-c" name="cryo-q1" class="mr-2">
+                                        <label for="cryo-q1-c">保持生物分子的天然结构</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="cryo-q1-d" name="cryo-q1" class="mr-2">
+                                        <label for="cryo-q1-d">提高样品导电性</label>
+                                    </div>
+                                </div>
+                                <div class="quiz-feedback mt-2 hidden"></div>
+                            </div>
+                            
+                            <div class="quiz-question mb-6">
+                                <p class="text-lg mb-4">2. 冷冻电镜技术获得诺贝尔奖是在哪一年？</p>
+                                <div class="space-y-2">
+                                    <div class="flex items-center">
+                                        <input type="radio" id="cryo-q2-a" name="cryo-q2" class="mr-2">
+                                        <label for="cryo-q2-a">2015</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="cryo-q2-b" name="cryo-q2" class="mr-2">
+                                        <label for="cryo-q2-b">2017</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="cryo-q2-c" name="cryo-q2" class="mr-2">
+                                        <label for="cryo-q2-c">2019</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="cryo-q2-d" name="cryo-q2" class="mr-2">
+                                        <label for="cryo-q2-d">2021</label>
+                                    </div>
+                                </div>
+                                <div class="quiz-feedback mt-2 hidden"></div>
+                            </div>
+                            
+                            <button id="check-cryo-answers" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all">
+                                检查答案
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 虚拟实验室页面 -->
+            <section id="lab-page" class="page hidden page-transition">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold mb-4 text-glow">虚拟实验室</h2>
+                    <p class="text-lg text-gray-300">
+                        在虚拟环境中体验电子显微镜的操作流程，掌握样品制备、参数设置、
+                        图像采集和分析的技能，无需实际设备即可提升实验能力。
+                    </p>
+                </div>
+                
+                <!-- 电镜选择 -->
+                <div class="flex flex-wrap gap-4 mb-8">
+                    <button class="lab-tab active px-4 py-2 rounded-lg bg-primary text-white transition-all" data-target="sem-lab">
+                        SEM实验室
+                    </button>
+                    <button class="lab-tab px-4 py-2 rounded-lg bg-primary/30 hover:bg-primary/50 transition-all" data-target="tem-lab">
+                        TEM实验室
+                    </button>
+                    <button class="lab-tab px-4 py-2 rounded-lg bg-primary/30 hover:bg-primary/50 transition-all" data-target="fib-lab">
+                        FIB实验室
+                    </button>
+                    <button class="lab-tab px-4 py-2 rounded-lg bg-primary/30 hover:bg-primary/50 transition-all" data-target="cryo-em-lab">
+                        Cryo-EM实验室
+                    </button>
+                </div>
+                
+                <!-- SEM虚拟实验室 -->
+                <div id="sem-lab" class="lab-content active">
+                    <div class="glass-effect rounded-xl p-6 mb-8 border border-secondary/30">
+                        <h3 class="text-2xl font-bold mb-4 text-accent">SEM虚拟实验室</h3>
+                        
+                        <!-- 实验步骤导航 -->
+                        <div class="flex flex-wrap gap-2 mb-6">
+                            <button class="step-btn active px-3 py-1 rounded bg-primary text-white text-sm" data-step="sample-prep">
+                                1. 样品制备
+                            </button>
+                            <button class="step-btn px-3 py-1 rounded bg-primary/30 text-white text-sm" data-step="sample-loading">
+                                2. 样品装载
+                            </button>
+                            <button class="step-btn px-3 py-1 rounded bg-primary/30 text-white text-sm" data-step="vacuum">
+                                3. 抽真空
+                            </button>
+                            <button class="step-btn px-3 py-1 rounded bg-primary/30 text-white text-sm" data-step="parameters">
+                                4. 参数设置
+                            </button>
+                            <button class="step-btn px-3 py-1 rounded bg-primary/30 text-white text-sm" data-step="imaging">
+                                5. 图像采集
+                            </button>
+                            <button class="step-btn px-3 py-1 rounded bg-primary/30 text-white text-sm" data-step="analysis">
+                                6. 图像分析
+                            </button>
+                        </div>
+                        
+                        <!-- 实验内容区域 -->
+                        <div class="lab-experiment">
+                            <!-- 步骤1：样品制备 -->
+                            <div class="experiment-step active" id="sample-prep">
+                                <div class="flex flex-col md:flex-row gap-6">
+                                    <div class="md:w-1/2">
+                                        <h4 class="text-xl font-bold mb-3 text-secondary">样品制备</h4>
+                                        <p class="mb-4 text-gray-300">
+                                            SEM样品需要具有良好的导电性，以避免充电效应。对于非导电样品，需要进行镀膜处理。
+                                        </p>
+                                        <div class="mb-6">
+                                            <h5 class="font-bold mb-2">选择样品类型：</h5>
+                                            <div class="flex flex-wrap gap-3">
+                                                <button class="sample-type-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-sample="metal">
+                                                    金属材料
+                                                </button>
+                                                <button class="sample-type-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-sample="semiconductor">
+                                                    半导体
+                                                </button>
+                                                <button class="sample-type-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-sample="polymer">
+                                                    聚合物
+                                                </button>
+                                                <button class="sample-type-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-sample="biological">
+                                                    生物样品
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="mb-6">
+                                            <h5 class="font-bold mb-2">样品处理：</h5>
+                                            <div class="flex flex-wrap gap-3">
+                                                <button class="treatment-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-treatment="cleaning">
+                                                    清洁
+                                                </button>
+                                                <button class="treatment-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-treatment="drying">
+                                                    干燥
+                                                </button>
+                                                <button class="treatment-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-treatment="coating">
+                                                    镀膜（金/碳）
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="sample-status mb-4 p-3 bg-dark/50 rounded-lg hidden">
+                                            <p class="font-bold">样品状态：</p>
+                                            <p id="sample-status-text">请选择样品类型和处理方法</p>
+                                        </div>
+                                        <button id="next-step-1" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                            下一步：样品装载
+                                        </button>
+                                    </div>
+                                    <div class="md:w-1/2">
+                                        <div class="bg-dark/50 rounded-lg p-4 h-full flex items-center justify-center">
+                                            <div id="sample-prep-visual" class="text-center">
+                                                <i class="fa fa-flask text-6xl text-secondary mb-4"></i>
+                                                <p class="text-gray-300">请选择样品类型和处理方法</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 步骤2：样品装载 -->
+                            <div class="experiment-step hidden" id="sample-loading">
+                                <div class="flex flex-col md:flex-row gap-6">
+                                    <div class="md:w-1/2">
+                                        <h4 class="text-xl font-bold mb-3 text-secondary">样品装载</h4>
+                                        <p class="mb-4 text-gray-300">
+                                            将制备好的样品装载到样品台上，确保样品牢固固定，避免在抽真空和观察过程中移动。
+                                        </p>
+                                        <div class="mb-6">
+                                            <h5 class="font-bold mb-2">选择样品台：</h5>
+                                            <div class="flex flex-wrap gap-3">
+                                                <button class="stage-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-stage="standard">
+                                                    标准样品台
+                                                </button>
+                                                <button class="stage-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-stage="high-tilt">
+                                                    高倾斜样品台
+                                                </button>
+                                                <button class="stage-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-stage="heating">
+                                                    加热样品台
+                                                </button>
+                                                <button class="stage-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-stage="cooling">
+                                                    冷却样品台
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="mb-6">
+                                            <h5 class="font-bold mb-2">样品固定方法：</h5>
+                                            <div class="flex flex-wrap gap-3">
+                                                <button class="fixation-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-fixation="carbon-tape">
+                                                    导电胶带
+                                                </button>
+                                                <button class="fixation-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-fixation="sample-holder">
+                                                    样品夹
+                                                </button>
+                                                <button class="fixation-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-fixation="adhesive">
+                                                    导电胶
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="loading-status mb-4 p-3 bg-dark/50 rounded-lg hidden">
+                                            <p class="font-bold">装载状态：</p>
+                                            <p id="loading-status-text">请选择样品台和固定方法</p>
+                                        </div>
+                                        <div class="flex gap-4">
+                                            <button id="prev-step-2" class="btn-hover-effect bg-transparent border border-secondary text-secondary font-bold py-2 px-6 rounded-lg transition-all">
+                                                上一步
+                                            </button>
+                                            <button id="next-step-2" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                                下一步：抽真空
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="md:w-1/2">
+                                        <div class="bg-dark/50 rounded-lg p-4 h-full flex items-center justify-center">
+                                            <div id="sample-loading-visual" class="text-center">
+                                                <i class="fa fa-cubes text-6xl text-secondary mb-4"></i>
+                                                <p class="text-gray-300">请选择样品台和固定方法</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 其他步骤内容类似，此处省略... -->
+                            <div class="experiment-step hidden" id="vacuum">
+                                <div class="text-center py-12">
+                                    <h4 class="text-xl font-bold mb-3 text-secondary">抽真空</h4>
+                                    <p class="mb-6 text-gray-300">SEM需要在高真空环境下工作，以避免电子束与空气分子碰撞。</p>
+                                    <div class="inline-block relative w-64 h-64">
+                                        <div class="absolute inset-0 rounded-full border-8 border-primary/30"></div>
+                                        <div id="vacuum-progress" class="absolute inset-0 rounded-full border-8 border-primary border-t-transparent border-r-transparent border-b-transparent" style="transform: rotate(0deg); transition: transform 0.5s ease;"></div>
+                                        <div class="absolute inset-0 flex items-center justify-center flex-col">
+                                            <i class="fa fa-vacuum text-4xl text-secondary mb-2"></i>
+                                            <p id="vacuum-status" class="text-lg">准备抽真空</p>
+                                            <p id="vacuum-level" class="text-sm text-gray-400">真空度: 0 Pa</p>
+                                        </div>
+                                    </div>
+                                    <div class="mt-6">
+                                        <button id="start-vacuum" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all mb-4">
+                                            开始抽真空
+                                        </button>
+                                        <div class="flex gap-4 justify-center">
+                                            <button id="prev-step-3" class="btn-hover-effect bg-transparent border border-secondary text-secondary font-bold py-2 px-6 rounded-lg transition-all">
+                                                上一步
+                                            </button>
+                                            <button id="next-step-3" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                                下一步：参数设置
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="experiment-step hidden" id="parameters">
+                                <div class="flex flex-col md:flex-row gap-6">
+                                    <div class="md:w-1/2">
+                                        <h4 class="text-xl font-bold mb-3 text-secondary">参数设置</h4>
+                                        <p class="mb-4 text-gray-300">
+                                            设置合适的SEM参数对于获得高质量图像至关重要。
+                                        </p>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block mb-2">加速电压 (kV):</label>
+                                                <input type="range" id="acceleration-voltage" min="0.5" max="30" step="0.5" value="15" class="w-full">
+                                                <div class="flex justify-between">
+                                                    <span>0.5 kV</span>
+                                                    <span id="voltage-value">15 kV</span>
+                                                    <span>30 kV</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block mb-2">束流 (nA):</label>
+                                                <input type="range" id="beam-current" min="0.1" max="100" step="0.1" value="1" class="w-full">
+                                                <div class="flex justify-between">
+                                                    <span>0.1 nA</span>
+                                                    <span id="current-value">1 nA</span>
+                                                    <span>100 nA</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block mb-2">工作距离 (mm):</label>
+                                                <input type="range" id="working-distance" min="2" max="30" step="0.5" value="10" class="w-full">
+                                                <div class="flex justify-between">
+                                                    <span>2 mm</span>
+                                                    <span id="distance-value">10 mm</span>
+                                                    <span>30 mm</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block mb-2">探测器选择:</label>
+                                                <div class="flex flex-wrap gap-2">
+                                                    <button class="detector-btn active px-3 py-1 rounded bg-primary text-white text-sm" data-detector="se">
+                                                        二次电子 (SE)
+                                                    </button>
+                                                    <button class="detector-btn px-3 py-1 rounded bg-primary/30 text-white text-sm" data-detector="bse">
+                                                        背散射电子 (BSE)
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-6 flex gap-4">
+                                            <button id="prev-step-4" class="btn-hover-effect bg-transparent border border-secondary text-secondary font-bold py-2 px-6 rounded-lg transition-all">
+                                                上一步
+                                            </button>
+                                            <button id="next-step-4" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all">
+                                                下一步：图像采集
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="md:w-1/2">
+                                        <div class="bg-dark/50 rounded-lg p-4 h-full flex items-center justify-center">
+                                            <div id="parameters-visual" class="text-center">
+                                                <i class="fa fa-sliders text-6xl text-secondary mb-4"></i>
+                                                <div class="grid grid-cols-2 gap-4 mt-6">
+                                                    <div class="bg-primary/20 p-3 rounded-lg">
+                                                        <p class="font-bold">加速电压</p>
+                                                        <p id="param-voltage">15 kV</p>
+                                                    </div>
+                                                    <div class="bg-primary/20 p-3 rounded-lg">
+                                                        <p class="font-bold">束流</p>
+                                                        <p id="param-current">1 nA</p>
+                                                    </div>
+                                                    <div class="bg-primary/20 p-3 rounded-lg">
+                                                        <p class="font-bold">工作距离</p>
+                                                        <p id="param-distance">10 mm</p>
+                                                    </div>
+                                                    <div class="bg-primary/20 p-3 rounded-lg">
+                                                        <p class="font-bold">探测器</p>
+                                                        <p id="param-detector">二次电子 (SE)</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="experiment-step hidden" id="imaging">
+                                <div class="flex flex-col md:flex-row gap-6">
+                                    <div class="md:w-1/2">
+                                        <h4 class="text-xl font-bold mb-3 text-secondary">图像采集</h4>
+                                        <p class="mb-4 text-gray-300">
+                                            使用设置好的参数进行图像采集，调整焦距和对比度以获得最佳图像质量。
+                                        </p>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block mb-2">放大倍率:</label>
+                                                <div class="flex gap-2">
+                                                    <button class="magnification-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-magnification="500">
+                                                        500x
+                                                    </button>
+                                                    <button class="magnification-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-magnification="1000">
+                                                        1000x
+                                                    </button>
+                                                    <button class="magnification-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-magnification="5000">
+                                                        5000x
+                                                    </button>
+                                                    <button class="magnification-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-magnification="10000">
+                                                        10000x
+                                                    </button>
+                                                    <button class="magnification-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-magnification="50000">
+                                                        50000x
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block mb-2">聚焦:</label>
+                                                <input type="range" id="focus" min="0" max="100" step="1" value="50" class="w-full">
+                                            </div>
+                                            <div>
+                                                <label class="block mb-2">亮度/对比度:</label>
+                                                <div class="flex gap-4">
+                                                    <div>
+                                                        <label class="block text-sm mb-1">亮度:</label>
+                                                        <input type="range" id="brightness" min="0" max="100" step="1" value="50" class="w-full">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-sm mb-1">对比度:</label>
+                                                        <input type="range" id="contrast" min="0" max="100" step="1" value="50" class="w-full">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-6 flex gap-4">
+                                            <button id="prev-step-5" class="btn-hover-effect bg-transparent border border-secondary text-secondary font-bold py-2 px-6 rounded-lg transition-all">
+                                                上一步
+                                            </button>
+                                            <button id="capture-image" class="btn-hover-effect bg-accent hover:bg-accent/80 text-dark font-bold py-2 px-6 rounded-lg transition-all">
+                                                <i class="fa fa-camera mr-2"></i>采集图像
+                                            </button>
+                                            <button id="next-step-5" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                                下一步：图像分析
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="md:w-1/2">
+                                        <div class="bg-dark/50 rounded-lg p-4 h-full">
+                                            <div id="imaging-visual" class="relative w-full h-80 bg-black rounded-lg overflow-hidden">
+                                                <div class="absolute inset-0 flex items-center justify-center">
+                                                    <p class="text-gray-400">请调整参数并采集图像</p>
+                                                </div>
+                                                <div id="sem-image" class="hidden w-full h-full object-contain"></div>
+                                                <div class="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 text-sm">
+                                                    <span id="image-magnification">--x</span>
+                                                </div>
+                                            </div>
+                                            <div id="image-saved-message" class="hidden mt-4 p-3 bg-green-900/30 border border-green-500 rounded-lg text-center">
+                                                <i class="fa fa-check-circle text-green-500 mr-2"></i>
+                                                图像已保存，准备进行分析
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="experiment-step hidden" id="analysis">
+                                <div class="flex flex-col md:flex-row gap-6">
+                                    <div class="md:w-1/2">
+                                        <h4 class="text-xl font-bold mb-3 text-secondary">图像分析</h4>
+                                        <p class="mb-4 text-gray-300">
+                                            对采集到的SEM图像进行分析，提取有用的信息。
+                                        </p>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block mb-2">分析工具:</label>
+                                                <div class="flex flex-wrap gap-2">
+                                                    <button class="analysis-tool-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-tool="measure">
+                                                        测量
+                                                    </button>
+                                                    <button class="analysis-tool-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-tool="particle-analysis">
+                                                        颗粒分析
+                                                    </button>
+                                                    <button class="analysis-tool-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-tool="eds">
+                                                        能谱分析 (EDS)
+                                                    </button>
+                                                    <button class="analysis-tool-btn px-3 py-1 rounded bg-primary/30 hover:bg-primary/50 transition-all" data-tool="export">
+                                                        导出数据
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div id="analysis-results" class="p-4 bg-dark/50 rounded-lg hidden">
+                                                <h5 class="font-bold mb-2">分析结果:</h5>
+                                                <div id="analysis-content"></div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-6 flex gap-4">
+                                            <button id="prev-step-6" class="btn-hover-effect bg-transparent border border-secondary text-secondary font-bold py-2 px-6 rounded-lg transition-all">
+                                                上一步
+                                            </button>
+                                            <button id="finish-experiment" class="btn-hover-effect bg-accent hover:bg-accent/80 text-dark font-bold py-2 px-6 rounded-lg transition-all">
+                                                完成实验
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="md:w-1/2">
+                                        <div class="bg-dark/50 rounded-lg p-4 h-full">
+                                            <div id="analysis-visual" class="relative w-full h-80 bg-black rounded-lg overflow-hidden">
+                                                <div id="analyzed-image" class="w-full h-full object-contain"></div>
+                                                <div id="analysis-overlay" class="absolute inset-0 pointer-events-none"></div>
+                                            </div>
+                                            <div class="mt-4">
+                                                <canvas id="eds-chart" class="w-full h-40 hidden"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 其他电镜实验室内容类似，此处省略... -->
+                <div id="tem-lab" class="lab-content hidden">
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30">
+                        <h3 class="text-2xl font-bold mb-4 text-accent">TEM虚拟实验室</h3>
+                        <p class="text-center py-12 text-gray-300">
+                            TEM虚拟实验室正在建设中，敬请期待！
+                        </p>
+                    </div>
+                </div>
+                
+                <div id="fib-lab" class="lab-content hidden">
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30">
+                        <h3 class="text-2xl font-bold mb-4 text-accent">FIB虚拟实验室</h3>
+                        <p class="text-center py-12 text-gray-300">
+                            FIB虚拟实验室正在建设中，敬请期待！
+                        </p>
+                    </div>
+                </div>
+                
+                <div id="cryo-em-lab" class="lab-content hidden">
+                    <div class="glass-effect rounded-xl p-6 border border-secondary/30">
+                        <h3 class="text-2xl font-bold mb-4 text-accent">Cryo-EM虚拟实验室</h3>
+                        <p class="text-center py-12 text-gray-300">
+                            Cryo-EM虚拟实验室正在建设中，敬请期待！
+                        </p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 挑战模式页面 -->
+            <section id="challenge-page" class="page hidden page-transition">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold mb-4 text-glow">挑战模式</h2>
+                    <p class="text-lg text-gray-300">
+                        接受各种科研任务挑战，选择合适的电镜类型和参数，完成实验目标，
+                        赢取积分奖励，提升您的电镜技能。
+                    </p>
+                </div>
+                
+                <!-- 挑战难度选择 -->
+                <div class="flex flex-wrap gap-4 mb-8">
+                    <button class="challenge-difficulty active px-4 py-2 rounded-lg bg-primary text-white transition-all" data-difficulty="easy">
+                        初级挑战
+                    </button>
+                    <button class="challenge-difficulty px-4 py-2 rounded-lg bg-primary/30 hover:bg-primary/50 transition-all" data-difficulty="medium">
+                        中级挑战
+                    </button>
+                    <button class="challenge-difficulty px-4 py-2 rounded-lg bg-primary/30 hover:bg-primary/50 transition-all" data-difficulty="hard">
+                        高级挑战
+                    </button>
+                </div>
+                
+                <!-- 挑战任务列表 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- 初级挑战1 -->
+                    <div class="glass-effect rounded-xl overflow-hidden border border-secondary/30 hover:border-accent transition-all challenge-card" data-difficulty="easy" data-challenge="challenge1">
+                        <div class="h-40 bg-gradient-to-br from-primary/40 to-secondary/40 flex items-center justify-center relative overflow-hidden">
+                            <img src="https://p11-doubao-search-sign.byteimg.com/labis/bbccfd9e3915c894b1588624e8eb18b1~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=Onlu3UJHEPaiDoAP43hYkH3evL8%3D" 
+                                 alt="金属材料表面分析" 
+                                 class="w-full h-full object-cover opacity-70">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent"></div>
+                            <div class="absolute top-2 right-2 bg-yellow-500 text-dark font-bold py-1 px-3 rounded-full text-sm">
+                                100分
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-bold text-lg">金属材料表面分析</h4>
+                                <span class="bg-green-900/30 text-green-400 text-xs py-1 px-2 rounded">初级</span>
+                            </div>
+                            <p class="text-sm text-gray-300 mb-4">
+                                分析铝合金样品的表面形貌，识别晶粒结构和表面缺陷。
+                            </p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-gray-400">推荐设备: SEM</span>
+                                <button class="start-challenge-btn px-3 py-1 bg-primary hover:bg-primary/80 rounded-lg text-sm transition-all">
+                                    开始挑战
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 初级挑战2 -->
+                    <div class="glass-effect rounded-xl overflow-hidden border border-secondary/30 hover:border-accent transition-all challenge-card" data-difficulty="easy" data-challenge="challenge2">
+                        <div class="h-40 bg-gradient-to-br from-primary/40 to-secondary/40 flex items-center justify-center relative overflow-hidden">
+                            <img src="https://p26-doubao-search-sign.byteimg.com/labis/image/b3c8d3a696b16b07a5a5f02dec8941bc~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=fZ7Mavhmgo1baKxgw%2BSoIdYOK1w%3D" 
+                                 alt="聚合物薄膜截面观察" 
+                                 class="w-full h-full object-cover opacity-70">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent"></div>
+                            <div class="absolute top-2 right-2 bg-yellow-500 text-dark font-bold py-1 px-3 rounded-full text-sm">
+                                150分
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-bold text-lg">聚合物薄膜截面观察</h4>
+                                <span class="bg-green-900/30 text-green-400 text-xs py-1 px-2 rounded">初级</span>
+                            </div>
+                            <p class="text-sm text-gray-300 mb-4">
+                                观察聚合物薄膜的截面结构，测量薄膜厚度和层间界面。
+                            </p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-gray-400">推荐设备: TEM</span>
+                                <button class="start-challenge-btn px-3 py-1 bg-primary hover:bg-primary/80 rounded-lg text-sm transition-all">
+                                    开始挑战
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 中级挑战1 -->
+                    <div class="glass-effect rounded-xl overflow-hidden border border-secondary/30 hover:border-accent transition-all challenge-card" data-difficulty="medium" data-challenge="challenge3">
+                        <div class="h-40 bg-gradient-to-br from-primary/40 to-secondary/40 flex items-center justify-center relative overflow-hidden">
+                            <img src="https://p26-doubao-search-sign.byteimg.com/labis/e93505f00c848874225a36e1afa4ac41~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=zj4lEdpd5x4aeaR9sN4sE67pLyg%3D" 
+                                 alt="半导体器件失效分析" 
+                                 class="w-full h-full object-cover opacity-70">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent"></div>
+                            <div class="absolute top-2 right-2 bg-yellow-500 text-dark font-bold py-1 px-3 rounded-full text-sm">
+                                300分
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-bold text-lg">半导体器件失效分析</h4>
+                                <span class="bg-yellow-900/30 text-yellow-400 text-xs py-1 px-2 rounded">中级</span>
+                            </div>
+                            <p class="text-sm text-gray-300 mb-4">
+                                使用FIB技术定位并分析半导体器件中的失效区域，确定失效原因。
+                            </p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-gray-400">推荐设备: FIB-SEM</span>
+                                <button class="start-challenge-btn px-3 py-1 bg-primary hover:bg-primary/80 rounded-lg text-sm transition-all">
+                                    开始挑战
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 中级挑战2 -->
+                    <div class="glass-effect rounded-xl overflow-hidden border border-secondary/30 hover:border-accent transition-all challenge-card" data-difficulty="medium" data-challenge="challenge4">
+                        <div class="h-40 bg-gradient-to-br from-primary/40 to-secondary/40 flex items-center justify-center relative overflow-hidden">
+                            <img src="https://p26-doubao-search-sign.byteimg.com/labis/image/fae8b45709851f0e8955520d872f4f1f~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=6nJtYvyr9EOEhea1ZQOgks1krAk%3D" 
+                                 alt="蛋白质结构解析" 
+                                 class="w-full h-full object-cover opacity-70">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent"></div>
+                            <div class="absolute top-2 right-2 bg-yellow-500 text-dark font-bold py-1 px-3 rounded-full text-sm">
+                                350分
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-bold text-lg">蛋白质结构解析</h4>
+                                <span class="bg-yellow-900/30 text-yellow-400 text-xs py-1 px-2 rounded">中级</span>
+                            </div>
+                            <p class="text-sm text-gray-300 mb-4">
+                                使用冷冻电镜技术解析蛋白质的三维结构，分辨率达到3Å。
+                            </p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-gray-400">推荐设备: Cryo-EM</span>
+                                <button class="start-challenge-btn px-3 py-1 bg-primary hover:bg-primary/80 rounded-lg text-sm transition-all">
+                                    开始挑战
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 高级挑战1 -->
+                    <div class="glass-effect rounded-xl overflow-hidden border border-secondary/30 hover:border-accent transition-all challenge-card" data-difficulty="hard" data-challenge="challenge5">
+                        <div class="h-40 bg-gradient-to-br from-primary/40 to-secondary/40 flex items-center justify-center relative overflow-hidden">
+                            <img src="https://p26-doubao-search-sign.byteimg.com/labis/e93505f00c848874225a36e1afa4ac41~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=zj4lEdpd5x4aeaR9sN4sE67pLyg%3D" 
+                                 alt="纳米器件三维重构" 
+                                 class="w-full h-full object-cover opacity-70">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent"></div>
+                            <div class="absolute top-2 right-2 bg-yellow-500 text-dark font-bold py-1 px-3 rounded-full text-sm">
+                                500分
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-bold text-lg">纳米器件三维重构</h4>
+                                <span class="bg-red-900/30 text-red-400 text-xs py-1 px-2 rounded">高级</span>
+                            </div>
+                            <p class="text-sm text-gray-300 mb-4">
+                                使用FIB-SEM双束系统对纳米电子器件进行逐层切割和成像，重建三维结构。
+                            </p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-gray-400">推荐设备: FIB-SEM</span>
+                                <button class="start-challenge-btn px-3 py-1 bg-primary hover:bg-primary/80 rounded-lg text-sm transition-all">
+                                    开始挑战
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 高级挑战2 -->
+                    <div class="glass-effect rounded-xl overflow-hidden border border-secondary/30 hover:border-accent transition-all challenge-card" data-difficulty="hard" data-challenge="challenge6">
+                        <div class="h-40 bg-gradient-to-br from-primary/40 to-secondary/40 flex items-center justify-center relative overflow-hidden">
+                            <img src="https://p26-doubao-search-sign.byteimg.com/labis/image/fae8b45709851f0e8955520d872f4f1f~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=6nJtYvyr9EOEhea1ZQOgks1krAk%3D" 
+                                 alt="病毒结构动态分析" 
+                                 class="w-full h-full object-cover opacity-70">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent"></div>
+                            <div class="absolute top-2 right-2 bg-yellow-500 text-dark font-bold py-1 px-3 rounded-full text-sm">
+                                600分
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-bold text-lg">病毒结构动态分析</h4>
+                                <span class="bg-red-900/30 text-red-400 text-xs py-1 px-2 rounded">高级</span>
+                            </div>
+                            <p class="text-sm text-gray-300 mb-4">
+                                使用冷冻电镜技术捕捉病毒在不同感染阶段的结构变化，分析其动态过程。
+                            </p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-gray-400">推荐设备: Cryo-EM</span>
+                                <button class="start-challenge-btn px-3 py-1 bg-primary hover:bg-primary/80 rounded-lg text-sm transition-all">
+                                    开始挑战
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 挑战详情模态框 -->
+                <div id="challenge-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
+                    <div class="glass-effect rounded-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 id="challenge-title" class="text-2xl font-bold text-accent">挑战任务</h3>
+                            <button id="close-challenge-modal" class="text-2xl hover:text-accent transition-all">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <div id="challenge-content">
+                            <!-- 挑战内容将通过JavaScript动态填充 -->
+                        </div>
+                        
+                        <div class="mt-6 flex justify-end gap-4">
+                            <button id="cancel-challenge" class="btn-hover-effect bg-transparent border border-secondary text-secondary font-bold py-2 px-6 rounded-lg transition-all">
+                                取消
+                            </button>
+                            <button id="accept-challenge" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all">
+                                接受挑战
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 挑战完成模态框 -->
+                <div id="challenge-complete-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
+                    <div class="glass-effect rounded-xl p-6 max-w-md w-full text-center">
+                        <div class="w-20 h-20 rounded-full bg-green-900/30 flex items-center justify-center mx-auto mb-4">
+                            <i class="fa fa-check text-4xl text-green-500"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-2 text-accent">挑战完成！</h3>
+                        <p class="mb-4 text-gray-300">恭喜您成功完成挑战任务！</p>
+                        <div class="bg-primary/20 p-4 rounded-lg mb-6">
+                            <p class="font-bold">获得积分:</p>
+                            <p id="earned-points" class="text-3xl font-bold text-yellow-400">100</p>
+                        </div>
+                        <button id="close-complete-modal" class="btn-hover-effect bg-primary hover:bg-primary/80 text-white font-bold py-2 px-6 rounded-lg transition-all">
+                            继续挑战
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <!-- 页脚 -->
+        <footer class="glass-effect border-t border-secondary/30 py-6">
+            <div class="container mx-auto px-4">
+                <div class="flex flex-col md:flex-row justify-between items-center">
+                    <div class="mb-4 md:mb-0">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center border border-secondary">
+                                <i class="fa fa-microscope text-accent"></i>
+                            </div>
+                            <h2 class="text-lg font-bold text-glow">电镜科研平台</h2>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-1">探索微观世界的奥秘之旅</p>
+                    </div>
+                    
+                    <div class="flex space-x-6">
+                        <a href="#" class="text-gray-400 hover:text-accent transition-all">
+                            <i class="fa fa-book"></i> 学习资源
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-accent transition-all">
+                            <i class="fa fa-question-circle"></i> 帮助中心
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-accent transition-all">
+                            <i class="fa fa-envelope"></i> 联系我们
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="mt-6 pt-6 border-t border-secondary/20 text-center text-sm text-gray-500">
+                    <p>&copy; 2025 电镜科研平台 - 交互式学习游戏. 保留所有权利.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 用户得分
+            let userScore = 0;
+            
+            // 创建电子流动画
+            function createElectrons() {
+                const container = document.getElementById('electrons-container');
+                const electronCount = 15;
+                
+                for (let i = 0; i < electronCount; i++) {
+                    const electron = document.createElement('div');
+                    electron.classList.add('electron');
+                    
+                    // 随机位置
+                    const x = Math.random() * window.innerWidth;
+                    const y = Math.random() * window.innerHeight;
+                    
+                    // 随机延迟和持续时间
+                    const delay = Math.random() * 5;
+                    const duration = 2 + Math.random() * 3;
+                    
+                    electron.style.left = `${x}px`;
+                    electron.style.top = `${y}px`;
+                    electron.style.animationDelay = `${delay}s`;
+                    electron.style.animationDuration = `${duration}s`;
+                    
+                    container.appendChild(electron);
+                }
+            }
+            
+            // 页面切换功能
+            function setupPageNavigation() {
+                const pages = ['home-page', 'knowledge-page', 'lab-page', 'challenge-page'];
+                const navButtons = document.querySelectorAll('.nav-btn');
+                const mobileNavButtons = document.querySelectorAll('.mobile-nav-btn');
+                const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+                const mobileMenu = document.getElementById('mobile-menu');
+                
+                // 桌面导航
+                navButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const targetId = this.id.replace('nav-', '') + '-page';
+                        
+                        // 更新按钮状态
+                        navButtons.forEach(b => b.classList.remove('active', 'bg-primary/30'));
+                        this.classList.add('active', 'bg-primary/30');
+                        
+                        // 切换页面
+                        pages.forEach(page => {
+                            const pageElement = document.getElementById(page);
+                            if (page === targetId) {
+                                pageElement.classList.remove('hidden');
+                                setTimeout(() => {
+                                    pageElement.classList.add('page-enter-active');
+                                    pageElement.classList.remove('page-enter');
+                                }, 10);
+                                pageElement.classList.add('page-enter');
+                            } else {
+                                pageElement.classList.add('hidden');
+                                pageElement.classList.remove('page-enter-active');
+                            }
+                        });
+                    });
+                });
+                
+                // 移动端导航
+                mobileNavButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const targetId = this.getAttribute('data-target') + '-page';
+                        
+                        // 更新按钮状态
+                        mobileNavButtons.forEach(b => b.classList.remove('active', 'bg-primary/30'));
+                        this.classList.add('active', 'bg-primary/30');
+                        
+                        // 切换页面
+                        pages.forEach(page => {
+                            const pageElement = document.getElementById(page);
+                            if (page === targetId) {
+                                pageElement.classList.remove('hidden');
+                                setTimeout(() => {
+                                    pageElement.classList.add('page-enter-active');
+                                    pageElement.classList.remove('page-enter');
+                                }, 10);
+                                pageElement.classList.add('page-enter');
+                            } else {
+                                pageElement.classList.add('hidden');
+                                pageElement.classList.remove('page-enter-active');
+                            }
+                        });
+                        
+                        // 关闭移动菜单
+                        mobileMenu.classList.add('hidden');
+                    });
+                });
+                
+                // 移动菜单切换
+                mobileMenuBtn.addEventListener('click', function() {
+                    mobileMenu.classList.toggle('hidden');
+                });
+                
+                // 首页按钮
+                document.getElementById('start-journey-btn').addEventListener('click', function() {
+                    document.getElementById('nav-knowledge').click();
+                });
+                
+                document.getElementById('learn-more-btn').addEventListener('click', function() {
+                    document.getElementById('nav-knowledge').click();
+                });
+                
+                // 电镜卡片点击
+                document.querySelectorAll('.microscope-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const type = this.getAttribute('data-type');
+                        document.getElementById('nav-knowledge').click();
+                        
+                        // 延迟切换到对应电镜知识
+                        setTimeout(() => {
+                            document.querySelector(`.knowledge-tab[data-target="${type}-knowledge"]`).click();
+                        }, 500);
+                    });
+                });
+            }
+            
+            // 知识库标签切换
+            function setupKnowledgeTabs() {
+                const tabs = document.querySelectorAll('.knowledge-tab');
+                const contents = document.querySelectorAll('.knowledge-content');
+                
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', function() {
+                        const target = this.getAttribute('data-target');
+                        
+                        // 更新标签状态
+                        tabs.forEach(t => {
+                            t.classList.remove('active', 'bg-primary');
+                            t.classList.add('bg-primary/30');
+                        });
+                        this.classList.add('active', 'bg-primary');
+                        this.classList.remove('bg-primary/30');
+                        
+                        // 切换内容
+                        contents.forEach(content => {
+                            if (content.id === target) {
+                                content.classList.add('active');
+                                content.classList.remove('hidden');
+                            } else {
+                                content.classList.remove('active');
+                                content.classList.add('hidden');
+                            }
+                        });
+                    });
+                });
+                
+                // 设置问答检查功能
+                setupQuizCheckers();
+            }
+            
+            // 设置问答检查功能
+            function setupQuizCheckers() {
+                // SEM问答检查
+                document.getElementById('check-sem-answers').addEventListener('click', function() {
+                    const q1Answer = document.getElementById('sem-q1-b').checked;
+                    const q2Answer = document.getElementById('sem-q2-b').checked;
+                    
+                    const q1Feedback = document.querySelector('.sem-quiz .quiz-question:nth-child(1) .quiz-feedback');
+                    const q2Feedback = document.querySelector('.sem-quiz .quiz-question:nth-child(2) .quiz-feedback');
+                    
+                    if (q1Answer) {
+                        q1Feedback.textContent = '✓ 正确！SEM主要用于观察样品表面形貌。';
+                        q1Feedback.className = 'quiz-feedback mt-2 text-green-400';
+                    } else {
+                        q1Feedback.textContent = '✗ 错误。SEM主要用于观察样品表面形貌。';
+                        q1Feedback.className = 'quiz-feedback mt-2 text-red-400';
+                    }
+                    
+                    if (q2Answer) {
+                        q2Feedback.textContent = '✓ 正确！二次电子主要用于表面形貌成像。';
+                        q2Feedback.className = 'quiz-feedback mt-2 text-green-400';
+                    } else {
+                        q2Feedback.textContent = '✗ 错误。二次电子主要用于表面形貌成像。';
+                        q2Feedback.className = 'quiz-feedback mt-2 text-red-400';
+                    }
+                    
+                    q1Feedback.classList.remove('hidden');
+                    q2Feedback.classList.remove('hidden');
+                    
+                    // 如果全部正确，增加分数
+                    if (q1Answer && q2Answer) {
+                        updateScore(10);
+                    }
+                });
+                
+                // TEM问答检查
+                document.getElementById('check-tem-answers').addEventListener('click', function() {
+                    const q1Answer = document.getElementById('tem-q1-c').checked;
+                    const q2Answer = document.getElementById('tem-q2-b').checked;
+                    
+                    const q1Feedback = document.querySelector('.tem-quiz .quiz-question:nth-child(1) .quiz-feedback');
+                    const q2Feedback = document.querySelector('.tem-quiz .quiz-question:nth-child(2) .quiz-feedback');
+                    
+                    if (q1Answer) {
+                        q1Feedback.textContent = '✓ 正确！TEM的分辨率主要取决于电子波长和透镜质量。';
+                        q1Feedback.className = 'quiz-feedback mt-2 text-green-400';
+                    } else {
+                        q1Feedback.textContent = '✗ 错误。TEM的分辨率主要取决于电子波长和透镜质量。';
+                        q1Feedback.className = 'quiz-feedback mt-2 text-red-400';
+                    }
+                    
+                    if (q2Answer) {
+                        q2Feedback.textContent = '✓ 正确！TEM样品的典型厚度是50-100nm。';
+                        q2Feedback.className = 'quiz-feedback mt-2 text-green-400';
+                    } else {
+                        q2Feedback.textContent = '✗ 错误。TEM样品的典型厚度是50-100nm。';
+                        q2Feedback.className = 'quiz-feedback mt-2 text-red-400';
+                    }
+                    
+                    q1Feedback.classList.remove('hidden');
+                    q2Feedback.classList.remove('hidden');
+                    
+                    // 如果全部正确，增加分数
+                    if (q1Answer && q2Answer) {
+                        updateScore(10);
+                    }
+                });
+                
+                // FIB问答检查
+                document.getElementById('check-fib-answers').addEventListener('click', function() {
+                    const q1Answer = document.getElementById('fib-q1-b').checked;
+                    const q2Answer = document.getElementById('fib-q2-b').checked;
+                    
+                    const q1Feedback = document.querySelector('.fib-quiz .quiz-question:nth-child(1) .quiz-feedback');
+                    const q2Feedback = document.querySelector('.fib-quiz .quiz-question:nth-child(2) .quiz-feedback');
+                    
+                    if (q1Answer) {
+                        q1Feedback.textContent = '✓ 正确！FIB常用的离子源材料是镓。';
+                        q1Feedback.className = 'quiz-feedback mt-2 text-green-400';
+                    } else {
+                        q1Feedback.textContent = '✗ 错误。FIB常用的离子源材料是镓。';
+                        q1Feedback.className = 'quiz-feedback mt-2 text-red-400';
+                    }
+                    
+                    if (q2Answer) {
+                        q2Feedback.textContent = '✓ 正确！FIB在半导体行业主要用于芯片修复和线路修改。';
+                        q2Feedback.className = 'quiz-feedback mt-2 text-green-400';
+                    } else {
+                        q2Feedback.textContent = '✗ 错误。FIB在半导体行业主要用于芯片修复和线路修改。';
+                        q2Feedback.className = 'quiz-feedback mt-2 text-red-400';
+                    }
+                    
+                    q1Feedback.classList.remove('hidden');
+                    q2Feedback.classList.remove('hidden');
+                    
+                    // 如果全部正确，增加分数
+                    if (q1Answer && q2Answer) {
+                        updateScore(10);
+                    }
+                });
+                
+                // Cryo-EM问答检查
+                document.getElementById('check-cryo-answers').addEventListener('click', function() {
+                    const q1Answer = document.getElementById('cryo-q1-c').checked;
+                    const q2Answer = document.getElementById('cryo-q2-b').checked;
+                    
+                    const q1Feedback = document.querySelector('.cryo-em-quiz .quiz-question:nth-child(1) .quiz-feedback');
+                    const q2Feedback = document.querySelector('.cryo-em-quiz .quiz-question:nth-child(2) .quiz-feedback');
+                    
+                    if (q1Answer) {
+                        q1Feedback.textContent = '✓ 正确！Cryo-EM中样品冷冻的主要目的是保持生物分子的天然结构。';
+                        q1Feedback.className = 'quiz-feedback mt-2 text-green-400';
+                    } else {
+                        q1Feedback.textContent = '✗ 错误。Cryo-EM中样品冷冻的主要目的是保持生物分子的天然结构。';
+                        q1Feedback.className = 'quiz-feedback mt-2 text-red-400';
+                    }
+                    
+                    if (q2Answer) {
+                        q2Feedback.textContent = '✓ 正确！冷冻电镜技术获得诺贝尔奖是在2017年。';
+                        q2Feedback.className = 'quiz-feedback mt-2 text-green-400';
+                    } else {
+                        q2Feedback.textContent = '✗ 错误。冷冻电镜技术获得诺贝尔奖是在2017年。';
+                        q2Feedback.className = 'quiz-feedback mt-2 text-red-400';
+                    }
+                    
+                    q1Feedback.classList.remove('hidden');
+                    q2Feedback.classList.remove('hidden');
+                    
+                    // 如果全部正确，增加分数
+                    if (q1Answer && q2Answer) {
+                        updateScore(10);
+                    }
+                });
+            }
+            
+            // 虚拟实验室设置
+            function setupVirtualLab() {
+                const tabs = document.querySelectorAll('.lab-tab');
+                const contents = document.querySelectorAll('.lab-content');
+                
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', function() {
+                        const target = this.getAttribute('data-target');
+                        
+                        // 更新标签状态
+                        tabs.forEach(t => {
+                            t.classList.remove('active', 'bg-primary');
+                            t.classList.add('bg-primary/30');
+                        });
+                        this.classList.add('active', 'bg-primary');
+                        this.classList.remove('bg-primary/30');
+                        
+                        // 切换内容
+                        contents.forEach(content => {
+                            if (content.id === target) {
+                                content.classList.add('active');
+                                content.classList.remove('hidden');
+                            } else {
+                                content.classList.remove('active');
+                                content.classList.add('hidden');
+                            }
+                        });
+                    });
+                });
+                
+                // SEM实验室步骤设置
+                setupSEMLab();
+            }
+            
+            // SEM实验室设置
+            function setupSEMLab() {
+                const stepButtons = document.querySelectorAll('.step-btn');
+                const experimentSteps = document.querySelectorAll('.experiment-step');
+                
+                // 步骤切换
+                stepButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const targetStep = this.getAttribute('data-step');
+                        
+                        // 更新按钮状态
+                        stepButtons.forEach(b => {
+                            b.classList.remove('active', 'bg-primary');
+                            b.classList.add('bg-primary/30');
+                        });
+                        this.classList.add('active', 'bg-primary');
+                        this.classList.remove('bg-primary/30');
+                        
+                        // 切换步骤内容
+                        experimentSteps.forEach(step => {
+                            if (step.id === targetStep) {
+                                step.classList.add('active');
+                                step.classList.remove('hidden');
+                            } else {
+                                step.classList.remove('active');
+                                step.classList.add('hidden');
+                            }
+                        });
+                    });
+                });
+                
+                // 样品制备设置
+                setupSamplePreparation();
+                
+                // 样品装载设置
+                setupSampleLoading();
+                
+                // 抽真空设置
+                setupVacuum();
+                
+                // 参数设置
+                setupParameters();
+                
+                // 图像采集设置
+                setupImaging();
+                
+                // 图像分析设置
+                setupAnalysis();
+                
+                // 步骤导航按钮
+                document.getElementById('next-step-1').addEventListener('click', function() {
+                    document.querySelector('.step-btn[data-step="sample-loading"]').click();
+                });
+                
+                document.getElementById('prev-step-2').addEventListener('click', function() {
+                    document.querySelector('.step-btn[data-step="sample-prep"]').click();
+                });
+                
+                document.getElementById('next-step-2').addEventListener('click', function() {
+                    document.querySelector('.step-btn[data-step="vacuum"]').click();
+                });
+                
+                document.getElementById('prev-step-3').addEventListener('click', function() {
+                    document.querySelector('.step-btn[data-step="sample-loading"]').click();
+                });
+                
+                document.getElementById('next-step-3').addEventListener('click', function() {
+                    document.querySelector('.step-btn[data-step="parameters"]').click();
+                });
+                
+                document.getElementById('prev-step-4').addEventListener('click', function() {
+                    document.querySelector('.step-btn[data-step="vacuum"]').click();
+                });
+                
+                document.getElementById('next-step-4').addEventListener('click', function() {
+                    document.querySelector('.step-btn[data-step="imaging"]').click();
+                });
+                
+                document.getElementById('prev-step-5').addEventListener('click', function() {
+                    document.querySelector('.step-btn[data-step="parameters"]').click();
+                });
+                
+                document.getElementById('next-step-5').addEventListener('click', function() {
+                    document.querySelector('.step-btn[data-step="analysis"]').click();
+                });
+                
+                document.getElementById('prev-step-6').addEventListener('click', function() {
+                    document.querySelector('.step-btn[data-step="imaging"]').click();
+                });
+                
+                document.getElementById('finish-experiment').addEventListener('click', function() {
+                    alert('实验完成！您已成功完成SEM虚拟实验。');
+                    updateScore(50);
+                    
+                    // 重置实验
+                    document.querySelector('.step-btn[data-step="sample-prep"]').click();
+                });
+            }
+            
+            // 样品制备设置
+            function setupSamplePreparation() {
+                const sampleTypeButtons = document.querySelectorAll('.sample-type-btn');
+                const treatmentButtons = document.querySelectorAll('.treatment-btn');
+                const sampleStatus = document.querySelector('.sample-status');
+                const sampleStatusText = document.getElementById('sample-status-text');
+                const nextStepButton = document.getElementById('next-step-1');
+                const visual = document.getElementById('sample-prep-visual');
+                
+                let selectedSample = null;
+                let selectedTreatment = null;
+                
+                sampleTypeButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        sampleTypeButtons.forEach(b => b.classList.remove('bg-primary'));
+                        this.classList.add('bg-primary');
+                        selectedSample = this.getAttribute('data-sample');
+                        updateSampleStatus();
+                    });
+                });
+                
+                treatmentButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        treatmentButtons.forEach(b => b.classList.remove('bg-primary'));
+                        this.classList.add('bg-primary');
+                        selectedTreatment = this.getAttribute('data-treatment');
+                        updateSampleStatus();
+                    });
+                });
+                
+                function updateSampleStatus() {
+                    if (selectedSample && selectedTreatment) {
+                        sampleStatus.classList.remove('hidden');
+                        
+                        let statusMessage = '';
+                        let visualContent = '';
+                        
+                        switch (selectedSample) {
+                            case 'metal':
+                                statusMessage = `已选择金属材料样品，进行了${getTreatmentName(selectedTreatment)}处理。`;
+                                visualContent = `<img src="https://p11-doubao-search-sign.byteimg.com/labis/bbccfd9e3915c894b1588624e8eb18b1~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=Onlu3UJHEPaiDoAP43hYkH3evL8%3D" alt="金属样品" class="w-3/4 h-auto mx-auto mb-4"><p class="text-gray-300">金属样品已准备就绪</p>`;
+                                break;
+                            case 'semiconductor':
+                                statusMessage = `已选择半导体样品，进行了${getTreatmentName(selectedTreatment)}处理。`;
+                                visualContent = `<i class="fa fa-microchip text-6xl text-secondary mb-4"></i><p class="text-gray-300">半导体样品已准备就绪</p>`;
+                                break;
+                            case 'polymer':
+                                statusMessage = `已选择聚合物样品，进行了${getTreatmentName(selectedTreatment)}处理。`;
+                                visualContent = `<i class="fa fa-flask text-6xl text-secondary mb-4"></i><p class="text-gray-300">聚合物样品已准备就绪</p>`;
+                                break;
+                            case 'biological':
+                                statusMessage = `已选择生物样品，进行了${getTreatmentName(selectedTreatment)}处理。`;
+                                visualContent = `<i class="fa fa-leaf text-6xl text-secondary mb-4"></i><p class="text-gray-300">生物样品已准备就绪</p>`;
+                                break;
+                        }
+                        
+                        sampleStatusText.textContent = statusMessage;
+                        visual.innerHTML = visualContent;
+                        nextStepButton.disabled = false;
+                    }
+                }
+                
+                function getTreatmentName(treatment) {
+                    switch (treatment) {
+                        case 'cleaning': return '清洁';
+                        case 'drying': return '干燥';
+                        case 'coating': return '镀膜';
+                        default: return '';
+                    }
+                }
+            }
+            
+            // 样品装载设置
+            function setupSampleLoading() {
+                const stageButtons = document.querySelectorAll('.stage-btn');
+                const fixationButtons = document.querySelectorAll('.fixation-btn');
+                const loadingStatus = document.querySelector('.loading-status');
+                const loadingStatusText = document.getElementById('loading-status-text');
+                const nextStepButton = document.getElementById('next-step-2');
+                const visual = document.getElementById('sample-loading-visual');
+                
+                let selectedStage = null;
+                let selectedFixation = null;
+                
+                stageButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        stageButtons.forEach(b => b.classList.remove('bg-primary'));
+                        this.classList.add('bg-primary');
+                        selectedStage = this.getAttribute('data-stage');
+                        updateLoadingStatus();
+                    });
+                });
+                
+                fixationButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        fixationButtons.forEach(b => b.classList.remove('bg-primary'));
+                        this.classList.add('bg-primary');
+                        selectedFixation = this.getAttribute('data-fixation');
+                        updateLoadingStatus();
+                    });
+                });
+                
+                function updateLoadingStatus() {
+                    if (selectedStage && selectedFixation) {
+                        loadingStatus.classList.remove('hidden');
+                        
+                        let statusMessage = '';
+                        let visualContent = '';
+                        
+                        statusMessage = `已选择${getStageName(selectedStage)}，使用${getFixationName(selectedFixation)}固定样品。`;
+                        visualContent = `<i class="fa fa-cubes text-6xl text-secondary mb-4"></i><p class="text-gray-300">样品已成功装载到${getStageName(selectedStage)}上</p>`;
+                        
+                        loadingStatusText.textContent = statusMessage;
+                        visual.innerHTML = visualContent;
+                        nextStepButton.disabled = false;
+                    }
+                }
+                
+                function getStageName(stage) {
+                    switch (stage) {
+                        case 'standard': return '标准样品台';
+                        case 'high-tilt': return '高倾斜样品台';
+                        case 'heating': return '加热样品台';
+                        case 'cooling': return '冷却样品台';
+                        default: return '';
+                    }
+                }
+                
+                function getFixationName(fixation) {
+                    switch (fixation) {
+                        case 'carbon-tape': return '导电胶带';
+                        case 'sample-holder': return '样品夹';
+                        case 'adhesive': return '导电胶';
+                        default: return '';
+                    }
+                }
+            }
+            
+            // 抽真空设置
+            function setupVacuum() {
+                const startVacuumButton = document.getElementById('start-vacuum');
+                const vacuumProgress = document.getElementById('vacuum-progress');
+                const vacuumStatus = document.getElementById('vacuum-status');
+                const vacuumLevel = document.getElementById('vacuum-level');
+                const nextStepButton = document.getElementById('next-step-3');
+                
+                let isVacuuming = false;
+                let vacuumDegree = 0;
+                
+                startVacuumButton.addEventListener('click', function() {
+                    if (isVacuuming) return;
+                    
+                    isVacuuming = true;
+                    vacuumStatus.textContent = '正在抽真空...';
+                    
+                    const interval = setInterval(() => {
+                        vacuumDegree += 5;
+                        
+                        // 更新进度条
+                        const rotation = (vacuumDegree / 100) * 270; // 只旋转270度（3/4圈）
+                        vacuumProgress.style.transform = `rotate(${rotation}deg)`;
+                        
+                        // 更新真空度显示
+                        const pressure = 1000 - (vacuumDegree * 9.9); // 从1000 Pa降到1 Pa
+                        vacuumLevel.textContent = `真空度: ${pressure.toFixed(1)} Pa`;
+                        
+                        if (vacuumDegree >= 100) {
+                            clearInterval(interval);
+                            vacuumStatus.textContent = '真空达到要求';
+                            nextStepButton.disabled = false;
+                            isVacuuming = false;
+                        }
+                    }, 200);
+                });
+            }
+            
+            // 参数设置
+            function setupParameters() {
+                const voltageSlider = document.getElementById('acceleration-voltage');
+                const voltageValue = document.getElementById('voltage-value');
+                const currentSlider = document.getElementById('beam-current');
+                const currentValue = document.getElementById('current-value');
+                const distanceSlider = document.getElementById('working-distance');
+                const distanceValue = document.getElementById('distance-value');
+                const detectorButtons = document.querySelectorAll('.detector-btn');
+                
+                const paramVoltage = document.getElementById('param-voltage');
+                const paramCurrent = document.getElementById('param-current');
+                const paramDistance = document.getElementById('param-distance');
+                const paramDetector = document.getElementById('param-detector');
+                
+                voltageSlider.addEventListener('input', function() {
+                    const value = this.value;
+                    voltageValue.textContent = `${value} kV`;
+                    paramVoltage.textContent = `${value} kV`;
+                });
+                
+                currentSlider.addEventListener('input', function() {
+                    const value = this.value;
+                    currentValue.textContent = `${value} nA`;
+                    paramCurrent.textContent = `${value} nA`;
+                });
+                
+                distanceSlider.addEventListener('input', function() {
+                    const value = this.value;
+                    distanceValue.textContent = `${value} mm`;
+                    paramDistance.textContent = `${value} mm`;
+                });
+                
+                detectorButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        detectorButtons.forEach(b => {
+                            b.classList.remove('active', 'bg-primary');
+                            b.classList.add('bg-primary/30');
+                        });
+                        this.classList.add('active', 'bg-primary');
+                        this.classList.remove('bg-primary/30');
+                        
+                        const detector = this.getAttribute('data-detector');
+                        paramDetector.textContent = detector === 'se' ? '二次电子 (SE)' : '背散射电子 (BSE)';
+                    });
+                });
+            }
+            
+            // 图像采集设置
+            function setupImaging() {
+                const magnificationButtons = document.querySelectorAll('.magnification-btn');
+                const focusSlider = document.getElementById('focus');
+                const brightnessSlider = document.getElementById('brightness');
+                const contrastSlider = document.getElementById('contrast');
+                const captureButton = document.getElementById('capture-image');
+                const semImage = document.getElementById('sem-image');
+                const imageMagnification = document.getElementById('image-magnification');
+                const imageSavedMessage = document.getElementById('image-saved-message');
+                const nextStepButton = document.getElementById('next-step-5');
+                
+                let selectedMagnification = null;
+                
+                magnificationButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        magnificationButtons.forEach(b => {
+                            b.classList.remove('bg-primary');
+                            b.classList.add('bg-primary/30');
+                        });
+                        this.classList.add('bg-primary');
+                        this.classList.remove('bg-primary/30');
+                        
+                        selectedMagnification = this.getAttribute('data-magnification');
+                        imageMagnification.textContent = `${selectedMagnification}x`;
+                    });
+                });
+                
+                captureButton.addEventListener('click', function() {
+                    if (!selectedMagnification) {
+                        alert('请先选择放大倍率');
+                        return;
+                    }
+                    
+                    // 显示采集的图像
+                    semImage.classList.remove('hidden');
+                    semImage.src = `https://p11-doubao-search-sign.byteimg.com/labis/bbccfd9e3915c894b1588624e8eb18b1~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=Onlu3UJHEPaiDoAP43hYkH3evL8%3D`;
+                    
+                    // 显示保存成功消息
+                    imageSavedMessage.classList.remove('hidden');
+                    
+                    // 启用下一步按钮
+                    nextStepButton.disabled = false;
+                });
+            }
+            
+            // 图像分析设置
+            function setupAnalysis() {
+                const analysisToolButtons = document.querySelectorAll('.analysis-tool-btn');
+                const analysisResults = document.getElementById('analysis-results');
+                const analysisContent = document.getElementById('analysis-content');
+                const analyzedImage = document.getElementById('analyzed-image');
+                const analysisOverlay = document.getElementById('analysis-overlay');
+                const edsChart = document.getElementById('eds-chart');
+                
+                // 设置分析图像
+                analyzedImage.src = `https://p11-doubao-search-sign.byteimg.com/labis/bbccfd9e3915c894b1588624e8eb18b1~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1781076689&x-signature=Onlu3UJHEPaiDoAP43hYkH3evL8%3D`;
+                
+                analysisToolButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const tool = this.getAttribute('data-tool');
+                        
+                        // 重置分析结果
+                        analysisResults.classList.remove('hidden');
+                        analysisOverlay.innerHTML = '';
+                        edsChart.classList.add('hidden');
+                        
+                        switch (tool) {
+                            case 'measure':
+                                analysisContent.innerHTML = `
+                                    <p>测量结果:</p>
+                                    <ul class="list-disc list-inside">
+                                        <li>晶粒尺寸: 约 5-10 μm</li>
+                                        <li>表面粗糙度: Ra = 0.5 μm</li>
+                                        <li>孔隙直径: 约 200 nm</li>
+                                    </ul>
+                                `;
+                                
+                                // 添加测量标记
+                                analysisOverlay.innerHTML = `
+                                    <svg width="100%" height="100%" style="position: absolute; top: 0; left: 0;">
+                                        <line x1="30%" y1="40%" x2="60%" y2="40%" stroke="red" stroke-width="2" />
+                                        <text x="45%" y="35%" fill="red" text-anchor="middle">5μm</text>
+                                    </svg>
+                                `;
+                                break;
+                                
+                            case 'particle-analysis':
+                                analysisContent.innerHTML = `
+                                    <p>颗粒分析结果:</p>
+                                    <ul class="list-disc list-inside">
+                                        <li>平均颗粒尺寸: 250 nm</li>
+                                        <li>颗粒分布: 正态分布</li>
+                                        <li>颗粒密度: 约 1.2 × 10^9 /cm²</li>
+                                    </ul>
+                                `;
+                                
+                                // 添加颗粒标记
+                                analysisOverlay.innerHTML = `
+                                    <svg width="100%" height="100%" style="position: absolute; top: 0; left: 0;">
+                                        <circle cx="30%" cy="30%" r="10" stroke="green" stroke-width="2" fill="none" />
+                                        <circle cx="45%" cy="50%" r="15" stroke="green" stroke-width="2" fill="none" />
+                                        <circle cx="60%" cy="40%" r="8" stroke="green" stroke-width="2" fill="none" />
+                                        <circle cx="70%" cy="60%" r="12" stroke="green" stroke-width="2" fill="none" />
+                                    </svg>
+                                `;
+                                break;
+                                
+                            case 'eds':
+                                analysisContent.innerHTML = `
+                                    <p>能谱分析结果:</p>
+                                    <ul class="list-disc list-inside">
+                                        <li>铝 (Al): 65.2%</li>
+                                        <li>铜 (Cu): 23.8%</li>
+                                        <li>镁 (Mg): 8.5%</li>
+                                        <li>硅 (Si): 2.5%</li>
+                                    </ul>
+                                `;
+                                
+                                // 显示EDS图表
+                                edsChart.classList.remove('hidden');
+                                
+                                // 创建EDS图表
+                                const ctx = edsChart.getContext('2d');
+                                new Chart(ctx, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: ['Al', 'Cu', 'Mg', 'Si'],
+                                        datasets: [{
+                                            label: '元素含量 (%)',
+                                            data: [65.2, 23.8, 8.5, 2.5],
+                                            backgroundColor: [
+                                                'rgba(0, 170, 255, 0.7)',
+                                                'rgba(0, 255, 204, 0.7)',
+                                                'rgba(255, 206, 86, 0.7)',
+                                                'rgba(75, 192, 192, 0.7)'
+                                            ],
+                                            borderColor: [
+                                                'rgba(0, 170, 255, 1)',
+                                                'rgba(0, 255, 204, 1)',
+                                                'rgba(255, 206, 86, 1)',
+                                                'rgba(75, 192, 192, 1)'
+                                            ],
+                                            borderWidth: 1
+                                        }]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        scales: {
+                                            y: {
+                                                beginAtZero: true,
+                                                max: 100
+                                            }
+                                        }
+                                    }
+                                });
+                                break;
+                                
+                            case 'export':
+                                analysisContent.innerHTML = `
+                                    <p>数据导出成功!</p>
+                                    <p>已导出以下文件:</p>
+                                    <ul class="list-disc list-inside">
+                                        <li>SEM图像 (.tif)</li>
+                                        <li>分析数据 (.csv)</li>
+                                        <li>报告 (.pdf)</li>
+                                    </ul>
+                                `;
+                                break;
+                        }
+                    });
+                });
+            }
+            
+            // 挑战模式设置
+            function setupChallengeMode() {
+                const difficultyButtons = document.querySelectorAll('.challenge-difficulty');
+                const challengeCards = document.querySelectorAll('.challenge-card');
+                const startChallengeButtons = document.querySelectorAll('.start-challenge-btn');
+                const challengeModal = document.getElementById('challenge-modal');
+                const closeChallengeModal = document.getElementById('close-challenge-modal');
+                const cancelChallenge = document.getElementById('cancel-challenge');
+                const acceptChallenge = document.getElementById('accept-challenge');
+                const challengeTitle = document.getElementById('challenge-title');
+                const challengeContent = document.getElementById('challenge-content');
+                const challengeCompleteModal = document.getElementById('challenge-complete-modal');
+                const closeCompleteModal = document.getElementById('close-complete-modal');
+                const earnedPoints = document.getElementById('earned-points');
+                
+                // 难度筛选
+                difficultyButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const difficulty = this.getAttribute('data-difficulty');
+                        
+                        // 更新按钮状态
+                        difficultyButtons.forEach(b => {
+                            b.classList.remove('active', 'bg-primary');
+                            b.classList.add('bg-primary/30');
+                        });
+                        this.classList.add('active', 'bg-primary');
+                        this.classList.remove('bg-primary/30');
+                        
+                        // 筛选挑战卡片
+                        challengeCards.forEach(card => {
+                            if (card.getAttribute('data-difficulty') === difficulty) {
+                                card.classList.remove('hidden');
+                            } else {
+                                card.classList.add('hidden');
+                            }
+                        });
+                    });
+                });
+                
+                // 开始挑战
+                startChallengeButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const card = this.closest('.challenge-card');
+                        const challengeId = card.getAttribute('data-challenge');
+                        const challengeName = card.querySelector('h4').textContent;
+                        const points = card.querySelector('.bg-yellow-500').textContent;
+                        
+                        // 设置挑战标题
+                        challengeTitle.textContent = challengeName;
+                        
+                        // 设置挑战内容
+                        let content = '';
+                        switch (challengeId) {
+                            case 'challenge1':
+                                content = `
+                                    <div class="space-y-4">
+                                        <p class="font-bold">任务描述:</p>
+                                        <p>分析铝合金样品的表面形貌，识别晶粒结构和表面缺陷。</p>
+                                        
+                                        <p class="font-bold">实验要求:</p>
+                                        <ul class="list-disc list-inside">
+                                            <li>使用SEM观察样品表面</li>
+                                            <li>拍摄5000x和10000x放大倍率的图像</li>
+                                            <li>测量主要晶粒尺寸</li>
+                                            <li>识别并描述表面缺陷类型</li>
+                                        </ul>
+                                        
+                                        <p class="font-bold">实验步骤:</p>
+                                        <ol class="list-decimal list-inside">
+                                            <li>制备样品并装载到SEM样品台</li>
+                                            <li>设置合适的加速电压和工作距离</li>
+                                            <li>使用二次电子探测器采集图像</li>
+                                            <li>进行图像分析并记录结果</li>
+                                        </ol>
+                                        
+                                        <p class="font-bold">评分标准:</p>
+                                        <ul class="list-disc list-inside">
+                                            <li>图像质量: 40分</li>
+                                            <li>晶粒尺寸测量准确性: 30分</li>
+                                            <li>缺陷识别完整性: 30分</li>
+                                        </ul>
+                                        
+                                        <div class="bg-primary/20 p-4 rounded-lg">
+                                            <p class="font-bold">奖励积分:</p>
+                                            <p class="text-2xl font-bold text-yellow-400">${points}</p>
+                                        </div>
+                                    </div>
+                                `;
+                                break;
+                            case 'challenge2':
+                                content = `
+                                    <div class="space-y-4">
+                                        <p class="font-bold">任务描述:</p>
+                                        <p>观察聚合物薄膜的截面结构，测量薄膜厚度和层间界面。</p>
+                                        
+                                        <p class="font-bold">实验要求:</p>
+                                        <ul class="list-disc list-inside">
+                                            <li>使用TEM观察样品截面</li>
+                                            <li>拍摄高分辨率图像</li>
+                                            <li>测量薄膜总厚度</li>
+                                            <li>分析层间界面结构</li>
+                                        </ul>
+                                        
+                                        <p class="font-bold">实验步骤:</p>
+                                        <ol class="list-decimal list-inside">
+                                            <li>制备超薄切片样品</li>
+                                            <li>装载样品到TEM样品架</li>
+                                            <li>设置合适的加速电压和聚光镜参数</li>
+                                            <li>采集明场和暗场图像</li>
+                                            <li>进行图像分析并记录结果</li>
+                                        </ol>
+                                        
+                                        <p class="font-bold">评分标准:</p>
+                                        <ul class="list-disc list-inside">
+                                            <li>样品制备质量: 30分</li>
+                                            <li>图像分辨率: 30分</li>
+                                            <li>厚度测量准确性: 20分</li>
+                                            <li>界面分析完整性: 20分</li>
+                                        </ul>
+                                        
+                                        <div class="bg-primary/20 p-4 rounded-lg">
+                                            <p class="font-bold">奖励积分:</p>
+                                            <p class="text-2xl font-bold text-yellow-400">${points}</p>
+                                        </div>
+                                    </div>
+                                `;
+                                break;
+                            // 其他挑战内容类似，此处省略...
+                        }
+                        
+                        challengeContent.innerHTML = content;
+                        challengeModal.classList.remove('hidden');
+                        
+                        // 设置接受挑战按钮
+                        acceptChallenge.onclick = function() {
+                            challengeModal.classList.add('hidden');
+                            
+                            // 模拟挑战完成
+                            setTimeout(() => {
+                                earnedPoints.textContent = points;
+                                challengeCompleteModal.classList.remove('hidden');
+                                
+                                // 更新用户得分
+                                const pointsValue = parseInt(points);
+                                updateScore(pointsValue);
+                            }, 2000);
+                        };
+                    });
+                });
+                
+                // 关闭挑战模态框
+                closeChallengeModal.addEventListener('click', function() {
+                    challengeModal.classList.add('hidden');
+                });
+                
+                cancelChallenge.addEventListener('click', function() {
+                    challengeModal.classList.add('hidden');
+                });
+                
+                // 关闭完成模态框
+                closeCompleteModal.addEventListener('click', function() {
+                    challengeCompleteModal.classList.add('hidden');
+                });
+            }
+            
+            // 更新用户得分
+            function updateScore(points) {
+                userScore += points;
+                document.getElementById('user-score').textContent = userScore;
+                document.getElementById('mobile-score').textContent = userScore;
+            }
+            
+            // 初始化
+            createElectrons();
+            setupPageNavigation();
+            setupKnowledgeTabs();
+            setupVirtualLab();
+            setupChallengeMode();
+        });
+    </script>
+</body>
+</html>
